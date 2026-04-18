@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .glass-panel {
+    @apply rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur;
+  }
+
+  .mode-pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-bold tracking-wide text-white;
+  }
+
+  .mode-pill-secure {
+    @apply bg-emerald-700;
+  }
+
+  .mode-pill-vulnerable {
+    @apply bg-red-700;
+  }
+}
+
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline;
+}

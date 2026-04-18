@@ -7,10 +7,13 @@ University project for the course **Network Infrastructure Security**. The appli
 - Go
 - Gin Gonic
 - SQLite
+- Templ (server-side HTML views)
+- HTMX (partial page interactions)
+- Tailwind CSS (build pipeline + styling)
 
 ## Overview
 
-The project exposes a minimal HTTP API with a SQLite-backed database. It is intended as a security lab where the same application can be studied in two modes:
+The project exposes a minimal HTTP API with a SQLite-backed database and a server-rendered UI. It is intended as a security lab where the same application can be studied in two modes:
 
 - insecure mode, where only basic checks are applied
 - secure mode, where authentication and validation logic are expected to be enforced
@@ -21,21 +24,39 @@ The project exposes a minimal HTTP API with a SQLite-backed database. It is inte
 
 - Go 1.25 or newer
 - A working C toolchain, if required by the SQLite driver on your system
+- Node.js + npm (for Tailwind build)
 
 ### Start the application
 
 ```bash
 go mod tidy
+npm install
+npm run build:css
 go run main.go
 ```
 
 The server starts on `http://localhost:8080` and creates a local SQLite database file named `app.db` automatically if it does not already exist.
+
+Optional environment variables:
+
+- `PORT` (default: `:8080`)
+- `DB_PATH` (default: `app.db`)
+- `SECURITY_ENABLED` (`true` or `false`, default: `false`)
 
 ### Available endpoints
 
 - `GET /ping` - health check, returns `pong`
 - `GET /posts` - returns published blog posts
 - `POST /login` - accepts JSON login data
+
+### Available UI routes
+
+- `GET /` - redirects to `/ui/posts`
+- `GET /ui/posts` - server-rendered posts view
+- `GET /ui/login` - server-rendered login view
+- `POST /ui/login` - login form submit
+- `GET /ui/partials/posts` - HTMX partial for posts list refresh
+- `POST /ui/partials/login` - HTMX partial for login result
 
 Example login request:
 
@@ -59,3 +80,61 @@ In the current codebase, this flag acts as the central switch for the lab scenar
 - The database schema is created automatically on startup.
 - Sample blog posts and users are seeded when the tables are empty.
 - The current login flow is intentionally minimal so that the difference between insecure and secure handling is easy to observe.
+
+## Current Architecture (after refactor)
+
+- `main.go` - app bootstrap + router wiring
+- `internal/config` - app configuration loading
+- `internal/db` - DB init/migration/seed
+- `internal/service` - business/data access layer
+- `internal/handlers` - JSON + UI handlers
+- `internal/views/pages.templ` - Templ view definitions
+- `assets/css/input.css` - Tailwind source styles
+- `static/css/app.css` - generated Tailwind output served by app
+
+## Templ Workflow
+
+Views are authored in `.templ` files and compiled to Go code.
+
+Generate code manually:
+
+```bash
+go run github.com/a-h/templ/cmd/templ@v0.3.1001 generate ./internal/views
+```
+
+Run integration tests:
+
+```bash
+go test -tags=integration -v .
+```
+
+## Tailwind Workflow
+
+Build CSS once:
+
+```bash
+npm run build:css
+```
+
+Watch during development:
+
+```bash
+npm run watch:css
+```
+
+## What Changed Recently
+
+1. Stage A completed (project split into `internal/*` packages).
+2. Stage B completed (Templ UI implemented and separated to `.templ` file).
+3. UI integration tests added for `/ui/posts` and `/ui/login`.
+4. Service improved with `rows.Err()` check after iteration.
+5. Rendering error handling in handlers unified and no longer ignored.
+6. Stage C completed with HTMX partial routes for posts and login.
+7. Stage D completed with Tailwind pipeline and styled Templ views.
+8. Static assets route added (`/static`) and app CSS served from generated file.
+
+## Next Steps
+
+1. Stage E: implement first vulnerable/secure security scenarios.
+2. Expand HTMX UX (loading/error states for more flows).
+3. Keep PostgreSQL migration and Docker Compose for final stage.

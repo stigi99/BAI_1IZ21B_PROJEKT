@@ -1,0 +1,109 @@
+package views
+
+import "BAI_1IZ21B_PROJEKT/internal/service"
+
+templ Layout(title string, securityEnabled bool) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1" />
+			<title>{ title }</title>
+			<link rel="preconnect" href="https://fonts.googleapis.com" />
+			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+			<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+			<link rel="stylesheet" href="/static/css/app.css" />
+			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+		</head>
+		<body class="min-h-screen bg-shell text-slate-900 antialiased">
+			<main class="mx-auto max-w-5xl px-4 py-8 sm:px-8">
+				<header class="glass-panel flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+					<nav class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+						<a class="rounded-full px-4 py-2 transition hover:bg-clay-100 hover:text-clay-900" href="/ui/posts">Posts</a>
+						<a class="rounded-full px-4 py-2 transition hover:bg-clay-100 hover:text-clay-900" href="/ui/login">Login</a>
+					</nav>
+					<div>
+						if securityEnabled {
+							<span class="mode-pill mode-pill-secure">SECURE</span>
+						} else {
+							<span class="mode-pill mode-pill-vulnerable">VULNERABLE</span>
+						}
+					</div>
+				</header>
+				<section class="glass-panel mt-6">
+					{ children... }
+				</section>
+				<p class="mt-4 text-sm text-slate-500">BAI lab UI powered by Templ + HTMX + Tailwind.</p>
+			</main>
+		</body>
+	</html>
+}
+
+templ PostsList(posts []service.Post) {
+	<ul id="posts-list" class="divide-y divide-clay-100">
+		for _, p := range posts {
+			<li class="py-4">
+				<h3 class="text-lg font-bold tracking-tight text-clay-900">{ p.Title }</h3>
+				<p class="mt-1 text-slate-700">{ p.PostContent }</p>
+				<small class="mt-2 block text-xs font-medium uppercase tracking-wider text-slate-500">id={ p.ID } published={ p.Published }</small>
+			</li>
+		}
+	</ul>
+}
+
+templ PostsPage(posts []service.Post, securityEnabled bool) {
+	@Layout("Posts", securityEnabled) {
+		<h1 class="text-3xl font-extrabold tracking-tight text-clay-900">Published Posts</h1>
+		<p class="mt-2 text-slate-600">Posts visible in current app state.</p>
+		<p class="mt-1 text-slate-500">Use the button to refresh list via HTMX partial endpoint.</p>
+		<button
+			class="mt-5 inline-flex items-center rounded-xl bg-clay-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-clay-800"
+			hx-get="/ui/partials/posts"
+			hx-target="#posts-list"
+			hx-swap="outerHTML">
+			Refresh Posts
+		</button>
+		<span class="htmx-indicator ml-3 text-sm font-medium text-slate-500">Refreshing...</span>
+		<div class="mt-5 rounded-2xl border border-clay-100 bg-white/80 p-4">
+			@PostsList(posts)
+		</div>
+	}
+}
+
+templ LoginResult(message string, isError bool) {
+	if message != "" {
+		if isError {
+			<p class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{ message }</p>
+		} else {
+			<p class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{ message }</p>
+		}
+	}
+}
+
+templ LoginPage(securityEnabled bool, message string, isError bool) {
+	@Layout("Login", securityEnabled) {
+		<h1 class="text-3xl font-extrabold tracking-tight text-clay-900">Login</h1>
+		<p class="mt-2 text-slate-600">Simple form for current insecure flow (username existence).</p>
+		<div id="login-result">
+			@LoginResult(message, isError)
+		</div>
+		<form method="post" action="/ui/login"
+			class="mt-5 space-y-4"
+			hx-post="/ui/partials/login"
+			hx-target="#login-result"
+			hx-swap="innerHTML">
+			<div>
+				<label class="mb-1 block text-sm font-semibold text-slate-700" for="username">Username</label>
+				<input class="w-full rounded-xl border border-clay-200 bg-white px-3 py-2 text-slate-900 outline-none ring-clay-300 transition focus:ring" id="username" name="username" required />
+			</div>
+			<div>
+				<label class="mb-1 block text-sm font-semibold text-slate-700" for="password">Password</label>
+				<input class="w-full rounded-xl border border-clay-200 bg-white px-3 py-2 text-slate-900 outline-none ring-clay-300 transition focus:ring" id="password" name="password" type="password" required />
+			</div>
+			<div class="flex items-center gap-3">
+				<button class="inline-flex items-center rounded-xl bg-clay-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-clay-800" type="submit">Login</button>
+				<span class="htmx-indicator text-sm font-medium text-slate-500">Checking...</span>
+			</div>
+		</form>
+	}
+}

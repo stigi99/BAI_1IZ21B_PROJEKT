@@ -4,6 +4,23 @@ BAI_1IZ21B_PROJEKT
 # SQLite database created at runtime
 app.db
 
+node_modules/
+
+# AI assistant/customization files
+AGENTS.md
+.github/copilot-instructions.md
+.github/instructions/
+.github/prompts/
+.github/agents/
+.github/hooks/
+.github/skills/
+.agents/
+.claude/
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.clinerules
 
 Plan.md
 Sprawozdanie.md
