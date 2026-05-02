@@ -34,9 +34,10 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 								<span>Posts</span>
 							</a>
 							if loggedIn {
-								<span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm">
-									<span>🔒</span>
-									<span class="font-bold">{ username }</span>
+								<span class="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-gradient-to-r from-emerald-100 to-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm shadow-emerald-200">
+									<span>✅</span>
+									<span>Logged in as</span>
+									<span class="font-extrabold tracking-wide">{ username }</span>
 								</span>
 								<a href="/ui/logout" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Logout">
 									<span>🔓</span>
@@ -147,8 +148,6 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 					window.setInterval(updateWanderTarget, 900);
 
 					const tick = () => {
-						const centerX = currentX + 28;
-						const centerY = currentY + 28;
 						const toWanderX = wanderTargetX - currentX;
 						const toWanderY = wanderTargetY - currentY;
 
@@ -185,7 +184,7 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 
 templ PostsList(posts []service.Post, canEdit bool) {
 	if len(posts) == 0 {
-		<div class="py-12 text-center">
+		<div id="posts-list" class="py-12 text-center">
 			<p class="text-2xl mb-2">📭</p>
 			<p class="text-lg font-semibold text-slate-700">No posts yet</p>
 			<p class="text-sm text-slate-500 mt-1">Create your first post to get started</p>
@@ -197,7 +196,11 @@ templ PostsList(posts []service.Post, canEdit bool) {
 					<div class="flex items-start justify-between gap-4 mb-3">
 						<div class="flex-1">
 							<h3 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight transition hover:text-fuchsia-700">{ p.Title }</h3>
-							<p class="text-xs text-slate-500 mt-1">Post ID: { fmt.Sprintf("%d", p.ID) }</p>
+							<p class="text-xs text-slate-500 mt-1">Post ID: { fmt.Sprintf("%d", p.ID) }
+								if p.Author != "" {
+									• by <span class="font-semibold text-fuchsia-700">{ p.Author }</span>
+								}
+							</p>
 						</div>
 						if p.Published == 1 {
 								<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-100 to-cyan-100 text-emerald-700 whitespace-nowrap">
@@ -205,11 +208,23 @@ templ PostsList(posts []service.Post, canEdit bool) {
 							</span>
 						} else {
 								<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-100 to-rose-100 text-amber-700 whitespace-nowrap">
-								⊙ Draft
+							⊙ Draft
 							</span>
 						}
 					</div>
 					<p class="text-slate-700 text-sm leading-relaxed mb-4 line-clamp-3">{ p.PostContent }</p>
+					if p.AttachmentPath != "" {
+						<div class="mb-4">
+							<a href={ templ.SafeURL(p.AttachmentPath) } target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-sky-50 text-sky-700 hover:bg-sky-100 transition">
+								📎
+								if p.AttachmentName != "" {
+									<span>{ p.AttachmentName }</span>
+								} else {
+									<span>Attachment</span>
+								}
+							</a>
+						</div>
+					}
 					if canEdit {
 						<div class="flex items-center gap-2 pt-4 border-t border-fuchsia-100">
 							<a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 transition" href={ templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", p.ID)) } title="Edit this post">
@@ -226,6 +241,27 @@ templ PostsList(posts []service.Post, canEdit bool) {
 			}
 		</div>
 	}
+}
+
+// PostsListContainer is the swap target for HTMX updates of the posts list.
+// Wraps PostsList in #posts-container so out-of-band updates can replace it.
+templ PostsListContainer(posts []service.Post, loggedIn bool, username string, securityEnabled bool) {
+	<div id="posts-container">
+		@PostsList(posts, loggedIn)
+	</div>
+}
+
+// PostsListWithBanner returns the same container with a flash message above
+// the list. Used by the HTMX create-post partial to surface success/errors.
+templ PostsListWithBanner(posts []service.Post, loggedIn bool, username string, securityEnabled bool, message string, isError bool) {
+	<div id="posts-container">
+		if message != "" {
+			<div class="mb-4">
+				@ResultMessage(message, isError)
+			</div>
+		}
+		@PostsList(posts, loggedIn)
+	</div>
 }
 
 templ ResultMessage(message string, isError bool) {
@@ -252,19 +288,17 @@ templ PostsPage(posts []service.Post, securityEnabled bool, loggedIn bool, usern
 				<p class="text-slate-600 mt-2">Manage all blog posts in one place</p>
 			</div>
 
-			if securityEnabled {
-				if loggedIn {
-					<div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-800 shadow-sm">
-						<span class="mr-2">✓</span>
-						Logged in as <strong>{ username }</strong>. You can now create and manage posts.
-					</div>
-				} else {
-					<div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800 shadow-sm">
-						<span class="mr-2">⚠️</span>
-						Log in to create, edit, or delete posts.
-						<a href="/ui/login" class="ml-2 font-semibold underline decoration-amber-400 underline-offset-2">Go to login</a>
-					</div>
-				}
+			if loggedIn {
+				<div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-800 shadow-sm">
+					<span class="mr-2">✓</span>
+					Logged in as <strong>{ username }</strong>. You can create, edit, and delete posts.
+				</div>
+			} else {
+				<div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800 shadow-sm">
+					<span class="mr-2">⚠️</span>
+					Log in to create, edit, or delete posts.
+					<a href="/ui/login" class="ml-2 font-semibold underline decoration-amber-400 underline-offset-2">Go to login</a>
+				</div>
 			}
 
 			if message != "" {
@@ -285,7 +319,13 @@ templ PostsPage(posts []service.Post, securityEnabled bool, loggedIn bool, usern
 								</a>
 							</div>
 						} else {
-							<form method="post" action="/ui/posts/create" class="space-y-4">
+							<form id="create-post-form" method="post" action="/ui/posts/create" enctype="multipart/form-data"
+								hx-post="/ui/partials/posts/create"
+								hx-target="#posts-container"
+								hx-swap="outerHTML"
+								hx-encoding="multipart/form-data"
+								hx-on::after-request="if(event.detail.successful) this.reset()"
+								class="space-y-4">
 							<div>
 								<label class="block text-sm font-semibold text-slate-700 mb-2" for="title">Title</label>
 								<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="title" name="title" placeholder="Post title" required minlength="1" maxlength="200" />
@@ -294,12 +334,18 @@ templ PostsPage(posts []service.Post, securityEnabled bool, loggedIn bool, usern
 								<label class="block text-sm font-semibold text-slate-700 mb-2" for="post_content">Content</label>
 								<textarea class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="post_content" name="post_content" placeholder="Write your post content here..." rows="6"></textarea>
 							</div>
+							<div>
+								<label class="block text-sm font-semibold text-slate-700 mb-2" for="attachment">📎 Attachment (optional)</label>
+								<input class="block w-full text-sm text-slate-700 file:mr-3 file:rounded-full file:border-0 file:bg-fuchsia-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-fuchsia-700 hover:file:bg-fuchsia-100 transition" id="attachment" name="attachment" type="file" />
+								<p class="text-xs text-slate-500 mt-1">Max 5 MB</p>
+							</div>
 							<label class="flex items-center gap-2 cursor-pointer">
 								<input class="w-4 h-4 rounded border-fuchsia-300 text-fuchsia-600 focus:ring-2 focus:ring-fuchsia-500" type="checkbox" name="published" value="1" />
 								<span class="text-sm font-medium text-slate-700">Publish immediately</span>
 							</label>
 							<button class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
 								✓ Create Post
+								<span class="htmx-indicator">...</span>
 							</button>
 							</form>
 						}
@@ -319,9 +365,7 @@ templ PostsPage(posts []service.Post, securityEnabled bool, loggedIn bool, usern
 							<span class="htmx-indicator">...</span>
 						</button>
 					</div>
-					<div id="posts-container">
-						@PostsList(posts, loggedIn)
-					</div>
+					@PostsListContainer(posts, loggedIn, username, securityEnabled)
 				</div>
 			</div>
 		</div>
@@ -352,6 +396,7 @@ templ LoginPage(securityEnabled bool, loggedIn bool, username string, message st
 						<label class="block text-sm font-semibold text-slate-700 mb-2" for="password">Password</label>
 							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="password" name="password" type="password" placeholder="••••••••" required autocomplete="current-password" />
 					</div>
+					<div id="login-result"></div>
 						<button class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
 						✓ Login
 						<span class="htmx-indicator">...</span>
@@ -364,8 +409,6 @@ templ LoginPage(securityEnabled bool, loggedIn bool, username string, message st
 				</p>
 			</div>
 		</div>
-
-		<div id="login-result" class="hidden"></div>
 	}
 }
 
@@ -380,7 +423,7 @@ templ RegisterPage(securityEnabled bool, loggedIn bool, username string, message
 					@ResultMessage(message, isError)
 				}
 
-				<form method="post" action="/ui/register" class="mt-6 space-y-4">
+				<form method="post" action="/ui/register" class="mt-6 space-y-4" hx-post="/ui/partials/register" hx-target="#register-result" hx-swap="innerHTML">
 					<div>
 						<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-username">Username</label>
 							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="reg-username" name="username" placeholder="Choose a username" required minlength="3" maxlength="50" autocomplete="username" />
@@ -395,8 +438,10 @@ templ RegisterPage(securityEnabled bool, loggedIn bool, username string, message
 							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="reg-password" name="password" type="password" placeholder="••••••••" required minlength="6" autocomplete="new-password" />
 						<p class="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
 					</div>
+					<div id="register-result"></div>
 						<button class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
 						✓ Create Account
+						<span class="htmx-indicator">...</span>
 					</button>
 				</form>
 
@@ -426,7 +471,7 @@ templ EditPostPage(securityEnabled bool, loggedIn bool, username string, post se
 					@ResultMessage(message, isError)
 				}
 
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", post.ID)) } class="mt-6 space-y-4">
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", post.ID)) } enctype="multipart/form-data" class="mt-6 space-y-4">
 					<div>
 						<label class="block text-sm font-semibold text-slate-700 mb-2" for="title">Title</label>
 						<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="title" name="title" value={ post.Title } required minlength="1" maxlength="200" />
@@ -434,6 +479,24 @@ templ EditPostPage(securityEnabled bool, loggedIn bool, username string, post se
 					<div>
 						<label class="block text-sm font-semibold text-slate-700 mb-2" for="post_content">Content</label>
 						<textarea class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition font-mono text-sm" id="post_content" name="post_content" rows="10">{ post.PostContent }</textarea>
+					</div>
+					if post.AttachmentPath != "" {
+						<div class="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3">
+							<p class="text-sm font-semibold text-slate-700 mb-2">Current attachment</p>
+							<a href={ templ.SafeURL(post.AttachmentPath) } target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-sm font-semibold text-sky-700 hover:text-sky-800">
+								📎
+								if post.AttachmentName != "" {
+									<span>{ post.AttachmentName }</span>
+								} else {
+									<span>Open file</span>
+								}
+							</a>
+						</div>
+					}
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="attachment">📎 Replace attachment (optional)</label>
+						<input class="block w-full text-sm text-slate-700 file:mr-3 file:rounded-full file:border-0 file:bg-fuchsia-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-fuchsia-700 hover:file:bg-fuchsia-100 transition" id="attachment" name="attachment" type="file" />
+						<p class="text-xs text-slate-500 mt-1">Leave empty to keep the current file. Max 5 MB.</p>
 					</div>
 					<label class="flex items-center gap-2 cursor-pointer">
 						if post.Published == 1 {

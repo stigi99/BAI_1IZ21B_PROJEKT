@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"BAI_1IZ21B_PROJEKT/internal/service"
 	"BAI_1IZ21B_PROJEKT/internal/views"
@@ -14,7 +17,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const authCookieName = "bai_auth_user"
+const (
+	authCookieName  = "bai_auth_user"
+	uploadsDir      = "./uploads"
+	uploadsURLPath  = "/uploads"
+	maxUploadBytes  = 5 << 20 // 5 MiB
+)
 
 type Handler struct {
 	svc             *service.Service
@@ -87,9 +95,7 @@ func (h *Handler) GetPosts() gin.HandlerFunc {
 	}
 }
 
-// PostLogin accepts JSON with username and password.
-// In the current (insecure) implementation it returns success if the username
-// exists in the database, without verifying the password.
+// PostLogin accepts JSON with username and password. Honours the SECURITY_ENABLED toggle.
 func (h *Handler) PostLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -164,7 +170,7 @@ func (h *Handler) PostCreate() gin.HandlerFunc {
 			author = username
 		}
 
-		id, err := h.svc.CreatePost(req.Title, req.PostContent, req.Published, author)
+		id, err := h.svc.CreatePost(req.Title, req.PostContent, req.Published, author, "", "")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create post"})
 			return
@@ -197,7 +203,7 @@ func (h *Handler) PostUpdate() gin.HandlerFunc {
 			return
 		}
 
-		if err := h.svc.UpdatePost(id, req.Title, req.PostContent, req.Published); err != nil {
+		if err := h.svc.UpdatePost(id, req.Title, req.PostContent, req.Published, "", ""); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update post"})
 			return
 		}
@@ -303,6 +309,34 @@ func (h *Handler) PageRegisterSubmit() gin.HandlerFunc {
 	}
 }
 
+// PageRegisterPartial is the HTMX endpoint for in-place registration.
+// On success it instructs the browser (via HX-Redirect) to navigate to /ui/login,
+// so the message banner is shown there and the user can log in immediately.
+func (h *Handler) PageRegisterPartial() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username := c.PostForm("username")
+		password := c.PostForm("password")
+		email := c.PostForm("email")
+
+		if username == "" || password == "" || email == "" {
+			component := views.ResultMessage("All fields are required", true)
+			renderHTML(c, http.StatusBadRequest, "register_partial", component)
+			return
+		}
+
+		if err := h.svc.CreateUser(username, password, email); err != nil {
+			component := views.ResultMessage("Failed to register user (username or email may already exist)", true)
+			renderHTML(c, http.StatusBadRequest, "register_partial", component)
+			return
+		}
+
+		// HX-Redirect causes htmx to do a full client-side navigation,
+		// which reloads the layout and refreshes the auth-aware navbar.
+		c.Header("HX-Redirect", "/ui/login?msg=Account+created.+You+can+log+in+now")
+		c.Status(http.StatusOK)
+	}
+}
+
 func (h *Handler) PagePostsPartial() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		posts, err := h.svc.GetAllPosts()
@@ -311,8 +345,8 @@ func (h *Handler) PagePostsPartial() gin.HandlerFunc {
 			return
 		}
 
-		_, loggedIn := h.currentUsername(c)
-		component := views.PostsList(posts, loggedIn)
+		username, loggedIn := h.currentUsername(c)
+		component := views.PostsListContainer(posts, loggedIn, username, h.securityEnabled)
 		renderHTML(c, http.StatusOK, "posts_partial", component)
 	}
 }
@@ -323,6 +357,47 @@ func readPublishedFromForm(c *gin.Context) int {
 		return 1
 	}
 	return 0
+}
+
+// saveUploadedAttachment stores an uploaded file under uploadsDir and returns
+// its public path and original filename. Returns ("", "", nil) when no file
+// was provided.
+func (h *Handler) saveUploadedAttachment(c *gin.Context, formField string) (publicPath, originalName string, err error) {
+	file, err := c.FormFile(formField)
+	if err != nil {
+		// No file uploaded – not an error condition.
+		return "", "", nil
+	}
+
+	if file.Size > maxUploadBytes {
+		return "", "", fmt.Errorf("file too large (max %d bytes)", maxUploadBytes)
+	}
+
+	cleanName := sanitizeFilename(file.Filename)
+	if cleanName == "" {
+		return "", "", fmt.Errorf("invalid filename")
+	}
+
+	storedName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), cleanName)
+	dst := filepath.Join(uploadsDir, storedName)
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		return "", "", err
+	}
+
+	return uploadsURLPath + "/" + storedName, file.Filename, nil
+}
+
+// sanitizeFilename strips path separators and disallows traversal sequences.
+// Returns "" for invalid names.
+func sanitizeFilename(name string) string {
+	name = filepath.Base(name)
+	if name == "" || name == "." || name == ".." {
+		return ""
+	}
+	if strings.ContainsAny(name, `/\`) {
+		return ""
+	}
+	return name
 }
 
 func (h *Handler) PagePostsCreate() gin.HandlerFunc {
@@ -345,12 +420,62 @@ func (h *Handler) PagePostsCreate() gin.HandlerFunc {
 			author = username
 		}
 
-		if _, err := h.svc.CreatePost(title, content, published, author); err != nil {
+		attachmentPath, attachmentName, err := h.saveUploadedAttachment(c, "attachment")
+		if err != nil {
+			c.Redirect(http.StatusSeeOther, "/ui/posts?err=1&msg=Failed+to+save+attachment")
+			return
+		}
+
+		if _, err := h.svc.CreatePost(title, content, published, author, attachmentPath, attachmentName); err != nil {
 			c.Redirect(http.StatusSeeOther, "/ui/posts?err=1&msg=Failed+to+create+post")
 			return
 		}
 
 		c.Redirect(http.StatusSeeOther, "/ui/posts?msg=Post+created")
+	}
+}
+
+// PagePostsCreatePartial handles HTMX form submissions and returns the freshly
+// rendered posts list so the page updates without a full reload.
+func (h *Handler) PagePostsCreatePartial() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
+		if !loggedIn {
+			c.Header("HX-Redirect", "/ui/login?err=1&msg=Please+log+in+to+add+posts")
+			c.Status(http.StatusUnauthorized)
+			return
+		}
+
+		title := c.PostForm("title")
+		content := c.PostForm("post_content")
+		published := readPublishedFromForm(c)
+
+		if title == "" {
+			posts, _ := h.svc.GetAllPosts()
+			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled, "Title is required", true)
+			renderHTML(c, http.StatusBadRequest, "posts_create_partial", component)
+			return
+		}
+
+		attachmentPath, attachmentName, err := h.saveUploadedAttachment(c, "attachment")
+		if err != nil {
+			posts, _ := h.svc.GetAllPosts()
+			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled, "Failed to save attachment: "+err.Error(), true)
+			renderHTML(c, http.StatusBadRequest, "posts_create_partial", component)
+			return
+		}
+
+		if _, err := h.svc.CreatePost(title, content, published, username, attachmentPath, attachmentName); err != nil {
+			posts, _ := h.svc.GetAllPosts()
+			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled, "Failed to create post", true)
+			renderHTML(c, http.StatusInternalServerError, "posts_create_partial", component)
+			return
+		}
+
+		posts, _ := h.svc.GetAllPosts()
+		component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled, "Post created", false)
+		c.Header("HX-Trigger", "post-created")
+		renderHTML(c, http.StatusOK, "posts_create_partial", component)
 	}
 }
 
@@ -405,7 +530,13 @@ func (h *Handler) PagePostEditSubmit() gin.HandlerFunc {
 			return
 		}
 
-		if err := h.svc.UpdatePost(id, title, content, published); err != nil {
+		attachmentPath, attachmentName, err := h.saveUploadedAttachment(c, "attachment")
+		if err != nil {
+			c.Redirect(http.StatusSeeOther, fmt.Sprintf("/ui/posts/edit/%d?err=1&msg=Failed+to+save+attachment", id))
+			return
+		}
+
+		if err := h.svc.UpdatePost(id, title, content, published, attachmentPath, attachmentName); err != nil {
 			c.Redirect(http.StatusSeeOther, fmt.Sprintf("/ui/posts/edit/%d?err=1&msg=Failed+to+update+post", id))
 			return
 		}
@@ -458,15 +589,6 @@ func (h *Handler) evaluateLogin(username, password string) (message string, isEr
 		return "Username and password are required", true, http.StatusBadRequest
 	}
 
-	// Hardcoded admin account for demo purposes
-	if username == "admin" {
-		if password == "password" {
-			return fmt.Sprintf("Login successful for %s", username), false, http.StatusOK
-		}
-		return "Invalid username or password", true, http.StatusUnauthorized
-	}
-
-	// For other users, when security is enabled use stored credentials
 	if h.securityEnabled {
 		valid, err := h.svc.ValidateUserCredentials(username, password)
 		if err != nil {
@@ -478,7 +600,9 @@ func (h *Handler) evaluateLogin(username, password string) (message string, isEr
 		return fmt.Sprintf("Login successful for %s", username), false, http.StatusOK
 	}
 
-	// In insecure mode, fall back to existence check (keeps lab behavior)
+	// VULNERABLE (insecure mode): Broken Authentication — only check user
+	// existence; password is ignored. This preserves the lab demonstration of
+	// the vulnerability.
 	exists, err := h.svc.UserExists(username)
 	if err != nil {
 		return "Database error", true, http.StatusInternalServerError
@@ -490,10 +614,9 @@ func (h *Handler) evaluateLogin(username, password string) (message string, isEr
 	return fmt.Sprintf("Login successful for %s", username), false, http.StatusOK
 }
 
-// Logout clears the auth cookie and redirects to posts UI
+// Logout clears the auth cookie and redirects to posts UI.
 func (h *Handler) Logout() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Expire the cookie
 		c.SetCookie(authCookieName, "", -1, "/", "", false, true)
 		c.Redirect(http.StatusSeeOther, "/ui/posts")
 	}
@@ -528,15 +651,14 @@ func (h *Handler) PageLoginSubmit() gin.HandlerFunc {
 			h.setAuthCookie(c, username)
 		}
 
-		loggedIn := false
-		if !isError {
-			loggedIn = true
-		}
+		loggedIn := !isError
 		component := views.LoginPage(h.securityEnabled, loggedIn, username, message, isError)
 		renderHTML(c, status, "login_submit", component)
 	}
 }
 
+// PageLoginPartial is the HTMX endpoint. On success we send HX-Redirect so the
+// whole layout refreshes (showing the green username badge in the navbar).
 func (h *Handler) PageLoginPartial() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username := c.PostForm("username")
@@ -544,6 +666,9 @@ func (h *Handler) PageLoginPartial() gin.HandlerFunc {
 		message, isError, status := h.evaluateLogin(username, password)
 		if !isError {
 			h.setAuthCookie(c, username)
+			c.Header("HX-Redirect", "/ui/posts?msg=Welcome+back%2C+"+username)
+			c.Status(http.StatusOK)
+			return
 		}
 
 		component := views.LoginResult(message, isError)
@@ -555,8 +680,8 @@ func (h *Handler) PageLoginPartial() gin.HandlerFunc {
 // VULNERABLE ENDPOINTS FOR DEMONSTRATION (Disabled when SECURITY_ENABLED=true)
 // ============================================================================
 
-// SearchVulnerable is a SQL Injection vulnerable endpoint
-// VULNERABLE: Concatenates user input directly into SQL query
+// SearchVulnerable is a SQL Injection vulnerable endpoint.
+// VULNERABLE: Concatenates user input directly into SQL query.
 func (h *Handler) SearchVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		query := c.Query("q")
@@ -565,7 +690,6 @@ func (h *Handler) SearchVulnerable() gin.HandlerFunc {
 			return
 		}
 
-		// VULNERABLE: Direct string concatenation - SQL Injection possible
 		sqlQuery := "SELECT id, title, post_content FROM blog WHERE title LIKE '%" + query + "%' OR post_content LIKE '%" + query + "%'"
 
 		rows, err := h.svc.GetDB().Query(sqlQuery)
@@ -593,8 +717,7 @@ func (h *Handler) SearchVulnerable() gin.HandlerFunc {
 	}
 }
 
-// CommentsVulnerable is a Stored XSS vulnerable endpoint
-// VULNERABLE: Stores comments without sanitization
+// CommentsVulnerable stores comments without sanitization (Stored XSS demo).
 func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -612,7 +735,6 @@ func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 			return
 		}
 
-		// VULNERABLE: Stores comment directly without sanitization
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "Comment stored",
 			"post_id": req.PostID,
@@ -621,8 +743,7 @@ func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 	}
 }
 
-// CsrfFormVulnerable returns a form without CSRF token protection
-// VULNERABLE: No CSRF token validation
+// CsrfFormVulnerable returns and accepts a form without CSRF protection.
 func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == http.MethodGet {
@@ -644,7 +765,6 @@ func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
 			return
 		}
 
-		// POST handler - VULNERABLE: No token validation
 		action := c.PostForm("action")
 		amount := c.PostForm("amount")
 		toAccount := c.PostForm("to_account")
