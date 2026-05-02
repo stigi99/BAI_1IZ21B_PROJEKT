@@ -1,6 +1,10 @@
 package views
 
-import "BAI_1IZ21B_PROJEKT/internal/service"
+import (
+	"fmt"
+
+	"BAI_1IZ21B_PROJEKT/internal/service"
+)
 
 templ Layout(title string, securityEnabled bool) {
 	<!doctype html>
@@ -8,102 +12,436 @@ templ Layout(title string, securityEnabled bool) {
 		<head>
 			<meta charset="utf-8" />
 			<meta name="viewport" content="width=device-width, initial-scale=1" />
-			<title>{ title }</title>
+			<meta name="description" content="BAI Security Lab Application" />
+			<title>{ title } • BAI Lab</title>
 			<link rel="preconnect" href="https://fonts.googleapis.com" />
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-			<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+			<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
 			<link rel="stylesheet" href="/static/css/app.css" />
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 		</head>
-		<body class="min-h-screen bg-shell text-slate-900 antialiased">
-			<main class="mx-auto max-w-5xl px-4 py-8 sm:px-8">
-				<header class="glass-panel flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-					<nav class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-						<a class="rounded-full px-4 py-2 transition hover:bg-clay-100 hover:text-clay-900" href="/ui/posts">Posts</a>
-						<a class="rounded-full px-4 py-2 transition hover:bg-clay-100 hover:text-clay-900" href="/ui/login">Login</a>
-					</nav>
-					<div>
-						if securityEnabled {
-							<span class="mode-pill mode-pill-secure">SECURE</span>
-						} else {
-							<span class="mode-pill mode-pill-vulnerable">VULNERABLE</span>
-						}
+			<body class="min-h-screen flex flex-col bg-shell text-slate-900 antialiased">
+			<header class="sticky top-0 z-40 border-b border-fuchsia-200/70 bg-white/75 shadow-[0_10px_30px_rgba(236,72,153,0.12)] backdrop-blur-xl">
+				<nav class="mx-auto max-w-6xl px-4 py-3 sm:px-8">
+					<div class="flex flex-wrap items-center justify-between gap-4">
+						<a href="/ui/posts" class="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 px-4 py-2 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300">
+							<span class="text-2xl">🌸</span>
+							<span>BAI Lab</span>
+						</a>
+						<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+							<a href="/ui/posts" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Browse all posts">
+								<span>📝</span>
+								<span>Posts</span>
+							</a>
+							<a href="/ui/login" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Log in to your account">
+								<span>🔑</span>
+								<span>Login</span>
+							</a>
+							<a href="/ui/register" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Create a new account">
+								<span>✍️</span>
+								<span>Register</span>
+							</a>
+						</div>
+						<div class="flex items-center gap-2">
+							if securityEnabled {
+								<span class="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-gradient-to-r from-emerald-400 to-cyan-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-cyan-200">
+									🛡️ Secure
+								</span>
+							} else {
+								<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-gradient-to-r from-rose-400 to-orange-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-rose-200">
+									⚠️ Vulnerable
+								</span>
+							}
+						</div>
 					</div>
-				</header>
-				<section class="glass-panel mt-6">
-					{ children... }
-				</section>
-				<p class="mt-4 text-sm text-slate-500">BAI lab UI powered by Templ + HTMX + Tailwind.</p>
+				</nav>
+			</header>
+
+			<main class="flex-1 mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
+				{ children... }
 			</main>
+
+			<footer class="mt-12 border-t border-fuchsia-200/70 bg-white/80 backdrop-blur-xl">
+				<div class="mx-auto max-w-6xl px-4 py-6 text-center text-xs font-medium text-slate-500 sm:px-8">
+					<p>BAI Security Lab © 2026 • Powered by Go, Templ, HTMX & Tailwind CSS</p>
+				</div>
+			</footer>
+
+			<div id="anime-mascot" class="anime-mascot hidden md:block" aria-hidden="true">
+				<div class="anime-mascot-card">
+					<div class="anime-mascot-sway">
+						<img class="anime-mascot-gif" src="/static/images/anime-girl.gif" alt="Anime girl mascot" width="56" height="56" draggable="false" />
+					</div>
+				</div>
+			</div>
+
+			<script>
+				(() => {
+					const mascot = document.getElementById('anime-mascot');
+					if (!mascot || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+						return;
+					}
+
+					let pointerX = window.innerWidth * 0.75;
+					let pointerY = window.innerHeight * 0.35;
+					let currentX = window.innerWidth - 86;
+					let currentY = 112;
+					let velocityX = 2.2;
+					let velocityY = 1.6;
+					let wanderAngle = Math.random() * Math.PI * 2;
+					let wanderTargetX = currentX;
+					let wanderTargetY = currentY;
+
+					const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+					const randomBetween = (min, max) => min + Math.random() * (max - min);
+					const updateWanderTarget = () => {
+						wanderAngle += randomBetween(-0.9, 0.9);
+						const distance = randomBetween(30, 130);
+						wanderTargetX = clamp(currentX + Math.cos(wanderAngle) * distance, 16, window.innerWidth - 70);
+						wanderTargetY = clamp(currentY + Math.sin(wanderAngle) * distance, 16, window.innerHeight - 70);
+					};
+
+					const fleeFromPointer = () => {
+						const mascotCenterX = currentX + 28;
+						const mascotCenterY = currentY + 28;
+						const deltaX = mascotCenterX - pointerX;
+						const deltaY = mascotCenterY - pointerY;
+						const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+						const fleeRadius = 220;
+						if (distance < fleeRadius) {
+							const force = (fleeRadius - distance) / fleeRadius;
+							velocityX += (deltaX / distance) * (0.8 + force * 4.5);
+							velocityY += (deltaY / distance) * (0.8 + force * 4.5);
+						}
+					};
+
+					const applyPosition = () => {
+						mascot.style.left = `${currentX}px`;
+						mascot.style.top = `${currentY}px`;
+					};
+
+					window.addEventListener('pointermove', (event) => {
+						pointerX = event.clientX;
+						pointerY = event.clientY;
+						fleeFromPointer();
+					}, { passive: true });
+
+					window.addEventListener('resize', () => {
+						currentX = clamp(currentX, 16, window.innerWidth - 70);
+						currentY = clamp(currentY, 16, window.innerHeight - 70);
+						wanderTargetX = clamp(wanderTargetX, 16, window.innerWidth - 70);
+						wanderTargetY = clamp(wanderTargetY, 16, window.innerHeight - 70);
+					});
+
+					window.setInterval(updateWanderTarget, 900);
+
+					const tick = () => {
+						const centerX = currentX + 28;
+						const centerY = currentY + 28;
+						const toWanderX = wanderTargetX - currentX;
+						const toWanderY = wanderTargetY - currentY;
+
+						velocityX += toWanderX * 0.0008;
+						velocityY += toWanderY * 0.0008;
+						fleeFromPointer();
+
+						velocityX *= 0.92;
+						velocityY *= 0.92;
+
+						currentX += velocityX;
+						currentY += velocityY;
+
+						if (currentX < 16 || currentX > window.innerWidth - 70) {
+							velocityX *= -0.85;
+							currentX = clamp(currentX, 16, window.innerWidth - 70);
+						}
+						if (currentY < 16 || currentY > window.innerHeight - 70) {
+							velocityY *= -0.85;
+							currentY = clamp(currentY, 16, window.innerHeight - 70);
+						}
+
+						applyPosition();
+						window.requestAnimationFrame(tick);
+					};
+
+					applyPosition();
+					window.requestAnimationFrame(tick);
+				})();
+			</script>
 		</body>
 	</html>
 }
 
-templ PostsList(posts []service.Post) {
-	<ul id="posts-list" class="divide-y divide-clay-100">
-		for _, p := range posts {
-			<li class="py-4">
-				<h3 class="text-lg font-bold tracking-tight text-clay-900">{ p.Title }</h3>
-				<p class="mt-1 text-slate-700">{ p.PostContent }</p>
-				<small class="mt-2 block text-xs font-medium uppercase tracking-wider text-slate-500">id={ p.ID } published={ p.Published }</small>
-			</li>
-		}
-	</ul>
+templ PostsList(posts []service.Post, canEdit bool) {
+	if len(posts) == 0 {
+		<div class="py-12 text-center">
+			<p class="text-2xl mb-2">📭</p>
+			<p class="text-lg font-semibold text-slate-700">No posts yet</p>
+			<p class="text-sm text-slate-500 mt-1">Create your first post to get started</p>
+		</div>
+	} else {
+		<div id="posts-list" class="grid gap-4 sm:gap-6">
+			for _, p := range posts {
+				<article class="rounded-2xl border border-fuchsia-100 bg-white/90 p-5 shadow-[0_12px_40px_rgba(236,72,153,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_50px_rgba(236,72,153,0.14)] sm:p-6">
+					<div class="flex items-start justify-between gap-4 mb-3">
+						<div class="flex-1">
+							<h3 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight transition hover:text-fuchsia-700">{ p.Title }</h3>
+							<p class="text-xs text-slate-500 mt-1">Post ID: { fmt.Sprintf("%d", p.ID) }</p>
+						</div>
+						if p.Published == 1 {
+								<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-100 to-cyan-100 text-emerald-700 whitespace-nowrap">
+								✓ Published
+							</span>
+						} else {
+								<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-100 to-rose-100 text-amber-700 whitespace-nowrap">
+								⊙ Draft
+							</span>
+						}
+					</div>
+					<p class="text-slate-700 text-sm leading-relaxed mb-4 line-clamp-3">{ p.PostContent }</p>
+					if canEdit {
+						<div class="flex items-center gap-2 pt-4 border-t border-fuchsia-100">
+							<a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 transition" href={ templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", p.ID)) } title="Edit this post">
+							✏️ Edit
+							</a>
+							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/ui/posts/delete/%d", p.ID)) } class="inline" onsubmit="return confirm('Are you sure you want to delete this post?');">
+								<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition" type="submit" title="Delete this post">
+								🗑️ Delete
+								</button>
+							</form>
+						</div>
+					}
+				</article>
+			}
+		</div>
+	}
 }
 
-templ PostsPage(posts []service.Post, securityEnabled bool) {
+templ ResultMessage(message string, isError bool) {
+	if message != "" {
+		if isError {
+			<div class="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
+				<span class="text-lg">⚠️</span>
+				<span>{ message }</span>
+			</div>
+		} else {
+			<div class="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status">
+				<span class="text-lg">✓</span>
+				<span>{ message }</span>
+			</div>
+		}
+	}
+}
+
+templ PostsPage(posts []service.Post, securityEnabled bool, loggedIn bool, username string, message string, isError bool) {
 	@Layout("Posts", securityEnabled) {
-		<h1 class="text-3xl font-extrabold tracking-tight text-clay-900">Published Posts</h1>
-		<p class="mt-2 text-slate-600">Posts visible in current app state.</p>
-		<p class="mt-1 text-slate-500">Use the button to refresh list via HTMX partial endpoint.</p>
-		<button
-			class="mt-5 inline-flex items-center rounded-xl bg-clay-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-clay-800"
-			hx-get="/ui/partials/posts"
-			hx-target="#posts-list"
-			hx-swap="outerHTML">
-			Refresh Posts
-		</button>
-		<span class="htmx-indicator ml-3 text-sm font-medium text-slate-500">Refreshing...</span>
-		<div class="mt-5 rounded-2xl border border-clay-100 bg-white/80 p-4">
-			@PostsList(posts)
+		<div class="space-y-8">
+			<div>
+				<h1 class="text-4xl font-bold text-slate-900">📝 Posts</h1>
+				<p class="text-slate-600 mt-2">Manage all blog posts in one place</p>
+			</div>
+
+			if securityEnabled {
+				if loggedIn {
+					<div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-800 shadow-sm">
+						<span class="mr-2">✓</span>
+						Logged in as <strong>{ username }</strong>. You can now create and manage posts.
+					</div>
+				} else {
+					<div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800 shadow-sm">
+						<span class="mr-2">⚠️</span>
+						Log in to create, edit, or delete posts.
+						<a href="/ui/login" class="ml-2 font-semibold underline decoration-amber-400 underline-offset-2">Go to login</a>
+					</div>
+				}
+			}
+
+			if message != "" {
+				<div>
+					@ResultMessage(message, isError)
+				</div>
+			}
+
+			<div class="grid lg:grid-cols-3 gap-8">
+				<div class="lg:col-span-1">
+					<div class="sticky top-24 rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+						<h2 class="text-lg font-bold text-slate-900 mb-4">✨ Create Post</h2>
+						if securityEnabled && !loggedIn {
+							<div class="space-y-4">
+								<p class="text-sm text-slate-600">You need to log in before adding posts.</p>
+								<a href="/ui/login" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300">
+									🔑 Go to login
+								</a>
+							</div>
+						} else {
+							<form method="post" action="/ui/posts/create" class="space-y-4">
+							<div>
+								<label class="block text-sm font-semibold text-slate-700 mb-2" for="title">Title</label>
+								<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="title" name="title" placeholder="Post title" required minlength="1" maxlength="200" />
+							</div>
+							<div>
+								<label class="block text-sm font-semibold text-slate-700 mb-2" for="post_content">Content</label>
+								<textarea class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="post_content" name="post_content" placeholder="Write your post content here..." rows="6"></textarea>
+							</div>
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input class="w-4 h-4 rounded border-fuchsia-300 text-fuchsia-600 focus:ring-2 focus:ring-fuchsia-500" type="checkbox" name="published" value="1" />
+								<span class="text-sm font-medium text-slate-700">Publish immediately</span>
+							</label>
+							<button class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
+								✓ Create Post
+							</button>
+							</form>
+						}
+					</div>
+				</div>
+
+				<div class="lg:col-span-2">
+					<div class="flex items-center justify-between mb-4">
+						<h2 class="text-lg font-bold text-slate-900">All Posts</h2>
+						<button
+							class="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-100 bg-fuchsia-50 px-3 py-1.5 text-sm font-semibold text-fuchsia-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-fuchsia-100"
+							hx-get="/ui/partials/posts"
+							hx-target="#posts-container"
+							hx-swap="outerHTML"
+							title="Refresh posts list">
+							🔄 Refresh
+							<span class="htmx-indicator">...</span>
+						</button>
+					</div>
+					<div id="posts-container">
+						@PostsList(posts, !securityEnabled || loggedIn)
+					</div>
+				</div>
+			</div>
 		</div>
 	}
 }
 
 templ LoginResult(message string, isError bool) {
-	if message != "" {
-		if isError {
-			<p class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{ message }</p>
-		} else {
-			<p class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{ message }</p>
-		}
-	}
+	@ResultMessage(message, isError)
 }
 
 templ LoginPage(securityEnabled bool, message string, isError bool) {
 	@Layout("Login", securityEnabled) {
-		<h1 class="text-3xl font-extrabold tracking-tight text-clay-900">Login</h1>
-		<p class="mt-2 text-slate-600">Simple form for current insecure flow (username existence).</p>
-		<div id="login-result">
-			@LoginResult(message, isError)
+				<div class="max-w-md mx-auto">
+					<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+				<h1 class="text-3xl font-bold text-slate-900 mb-2">🔑 Login</h1>
+				<p class="text-slate-600 mb-6">Access your account to manage posts</p>
+
+				if message != "" {
+					@ResultMessage(message, isError)
+				}
+
+				<form method="post" action="/ui/login" class="mt-6 space-y-4" hx-post="/ui/partials/login" hx-target="#login-result" hx-swap="innerHTML">
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="username">Username</label>
+							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="username" name="username" placeholder="your username" required autocomplete="username" />
+					</div>
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="password">Password</label>
+							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="password" name="password" type="password" placeholder="••••••••" required autocomplete="current-password" />
+					</div>
+						<button class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
+						✓ Login
+						<span class="htmx-indicator">...</span>
+					</button>
+				</form>
+
+				<p class="text-center text-sm text-slate-600 mt-6">
+					Don't have an account?
+					<a href="/ui/register" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Register here</a>
+				</p>
+			</div>
 		</div>
-		<form method="post" action="/ui/login"
-			class="mt-5 space-y-4"
-			hx-post="/ui/partials/login"
-			hx-target="#login-result"
-			hx-swap="innerHTML">
-			<div>
-				<label class="mb-1 block text-sm font-semibold text-slate-700" for="username">Username</label>
-				<input class="w-full rounded-xl border border-clay-200 bg-white px-3 py-2 text-slate-900 outline-none ring-clay-300 transition focus:ring" id="username" name="username" required />
+
+		<div id="login-result" class="hidden"></div>
+	}
+}
+
+templ RegisterPage(securityEnabled bool, message string, isError bool) {
+	@Layout("Register", securityEnabled) {
+				<div class="max-w-md mx-auto">
+					<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+				<h1 class="text-3xl font-bold text-slate-900 mb-2">✍️ Create Account</h1>
+				<p class="text-slate-600 mb-6">Join BAI Lab to manage posts</p>
+
+				if message != "" {
+					@ResultMessage(message, isError)
+				}
+
+				<form method="post" action="/ui/register" class="mt-6 space-y-4">
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-username">Username</label>
+							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="reg-username" name="username" placeholder="Choose a username" required minlength="3" maxlength="50" autocomplete="username" />
+						<p class="text-xs text-slate-500 mt-1">3-50 characters</p>
+					</div>
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-email">Email</label>
+							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="reg-email" name="email" type="email" placeholder="your@email.com" required autocomplete="email" />
+					</div>
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-password">Password</label>
+							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="reg-password" name="password" type="password" placeholder="••••••••" required minlength="6" autocomplete="new-password" />
+						<p class="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
+					</div>
+						<button class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
+						✓ Create Account
+					</button>
+				</form>
+
+				<p class="text-center text-sm text-slate-600 mt-6">
+					Already have an account?
+					<a href="/ui/login" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Login here</a>
+				</p>
 			</div>
-			<div>
-				<label class="mb-1 block text-sm font-semibold text-slate-700" for="password">Password</label>
-				<input class="w-full rounded-xl border border-clay-200 bg-white px-3 py-2 text-slate-900 outline-none ring-clay-300 transition focus:ring" id="password" name="password" type="password" required />
+		</div>
+	}
+}
+
+templ EditPostPage(securityEnabled bool, post service.Post, message string, isError bool) {
+	@Layout("Edit Post", securityEnabled) {
+		<div class="max-w-2xl mx-auto">
+			<div class="mb-6">
+				<a href="/ui/posts" class="text-sm font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">
+					← Back to Posts
+				</a>
 			</div>
-			<div class="flex items-center gap-3">
-				<button class="inline-flex items-center rounded-xl bg-clay-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-clay-800" type="submit">Login</button>
-				<span class="htmx-indicator text-sm font-medium text-slate-500">Checking...</span>
+
+				<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+				<h1 class="text-3xl font-bold text-slate-900 mb-2">✏️ Edit Post</h1>
+				<p class="text-slate-600 mb-6">Update your post content</p>
+
+				if message != "" {
+					@ResultMessage(message, isError)
+				}
+
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", post.ID)) } class="mt-6 space-y-4">
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="title">Title</label>
+						<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="title" name="title" value={ post.Title } required minlength="1" maxlength="200" />
+					</div>
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="post_content">Content</label>
+						<textarea class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition font-mono text-sm" id="post_content" name="post_content" rows="10">{ post.PostContent }</textarea>
+					</div>
+					<label class="flex items-center gap-2 cursor-pointer">
+						if post.Published == 1 {
+								<input class="w-4 h-4 rounded border-fuchsia-300 text-fuchsia-600 focus:ring-2 focus:ring-fuchsia-500" type="checkbox" name="published" value="1" checked />
+						} else {
+								<input class="w-4 h-4 rounded border-fuchsia-300 text-fuchsia-600 focus:ring-2 focus:ring-fuchsia-500" type="checkbox" name="published" value="1" />
+						}
+						<span class="text-sm font-medium text-slate-700">Publish this post</span>
+					</label>
+						<div class="flex items-center gap-3 pt-4 border-t border-fuchsia-100">
+							<button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
+							💾 Save Changes
+						</button>
+							<a class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-fuchsia-200 bg-white/80 text-slate-700 font-semibold hover:bg-fuchsia-50 hover:text-fuchsia-700 transition" href="/ui/posts">
+							Cancel
+						</a>
+					</div>
+				</form>
 			</div>
-		</form>
+		</div>
 	}
 }

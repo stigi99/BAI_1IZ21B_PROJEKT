@@ -1,4 +1,4 @@
-# Plan Dzialania: Go + Templ + HTMX + Tailwind + PostgreSQL + Docker Compose
+# Plan Dzialania: Go + Templ + HTMX + Tailwind + SQLite
 
 ## 1) Gdzie jestesmy teraz (stan aktualny)
 
@@ -12,11 +12,10 @@
 - [x] Testy integracyjne dla tras UI
 - [x] HTMX (partiale dla posts/login)
 - [x] Tailwind pipeline i stylowanie widokow
-- [ ] Brak PostgreSQL
-- [ ] Brak Dockerfile
-- [ ] Brak docker-compose
+- [x] SQLite jako docelowa baza dla tego projektu
+- [x] Zakres projektu zamkniety na obecnym stacku
 
-Wniosek: mamy dobry MVP backend i testy. Najpierw rozwijamy warstwe aplikacji (struktura + UI + scenariusze bezpieczenstwa), a migracje DB i konteneryzacje zostawiamy na koniec.
+Wniosek: mamy dobry MVP backend i testy. Rozwijamy warstwe aplikacji (struktura + UI + scenariusze bezpieczenstwa) i finalizujemy projekt na SQLite.
 
 ## 2) Cel docelowy (target stack)
 
@@ -24,8 +23,8 @@ Wniosek: mamy dobry MVP backend i testy. Najpierw rozwijamy warstwe aplikacji (s
 - Renderowanie: Templ
 - Interaktywnosc UI: HTMX
 - Stylowanie: Tailwind CSS
-- Baza danych: PostgreSQL
-- Uruchamianie: Docker + Docker Compose
+- Baza danych: SQLite
+- Uruchamianie: lokalnie (`go run main.go`)
 
 ## 3) Kolejnosc prac (krok po kroku)
 
@@ -102,34 +101,17 @@ Definition of done:
 - ten sam atak dziala w vulnerable
 - ten sam atak jest blokowany w secure
 
-### Etap F - Migracja SQLite -> PostgreSQL (na koniec)
+### Etap F - Finalizacja scenariuszy bezpieczenstwa i obrony
 
-1. Zmien driver DB na PostgreSQL (np. `pgx`).
-2. Dodaj DSN przez env: `DATABASE_URL`.
-3. Zmien SQL skladniowy tam, gdzie SQLite i PostgreSQL sie roznia.
-4. Przygotuj migracje SQL (folder np. `migrations/`).
-5. Zaktualizuj seed danych pod PostgreSQL.
-
-Definition of done:
-- aplikacja startuje na Postgres
-- endpointy dzialaja bez regresji
-- testy integracyjne przechodza na Postgres
-
-### Etap G - Docker + Docker Compose (final)
-
-1. Dodaj `Dockerfile` dla aplikacji Go.
-2. Dodaj `docker-compose.yml` z serwisami:
-   - `app`
-   - `postgres`
-3. Dodaj `.env.example` z wymaganymi zmiennymi.
-4. Dodaj healthcheck i `depends_on`.
-5. Dodaj komendy w README:
-   - `docker compose up --build`
-   - `docker compose down -v`
+1. Domknij wymagane podatnosci (SQL Injection i XSS) w trybach vulnerable/secure.
+2. Domknij dodatkowe podatnosci zgodnie z liczba osob w zespole.
+3. Przygotuj stabilne dane testowe i checklisty do live demo.
+4. Przejdz pelny dry-run obrony (atak -> blokada -> code review).
 
 Definition of done:
-- caly projekt startuje jednym poleceniem compose
-- app laczy sie z postgres automatycznie
+- wszystkie scenariusze da sie powtorzyc na tej samej instancji aplikacji
+- brak regresji endpointow i tras UI
+- material demo jest gotowy do prezentacji
 
 ## 4) Co robimy teraz i co dalej (konkretnie)
 
@@ -145,7 +127,7 @@ Definition of done:
 
 1. Rozwinac HTMX o dodatkowe partiale i obsluge bledow UX (komunikaty i loading states).
 2. Wejsc w Etap E i zaczas implementowac pierwsze podatnosci vulnerable vs secure.
-3. Utrzymac Etap F (PostgreSQL) i Etap G (Docker Compose) na final projektu.
+3. Wejsc w Etap F i przygotowac komplet scenariuszy oraz materialow pod obrone.
 
 ## 4a) Co sie zmienilo od ostatniego czasu
 
@@ -164,15 +146,15 @@ Definition of done:
 
 ## 5) Minimalna checklista techniczna
 
-- [ ] Konfiguracja env (`PORT`, `DATABASE_URL`, `SECURITY_ENABLED`)
+- [ ] Konfiguracja env (`PORT`, `DB_PATH`, `SECURITY_ENABLED`)
 - [ ] Migracje uruchamiane automatycznie przy starcie lub komenda `make migrate`
 - [ ] Logowanie bledow bez wycieku wrazliwych danych
 - [ ] Testy integracyjne odpalane w CI
-- [ ] README z instrukcja local + docker compose
+- [ ] README z instrukcja local run (Go + npm)
 
 ## 6) Proponowany podzial prac dla zespolu 2-3 osoby
 
-1. Osoba A: DB + migracje + Docker Compose
+1. Osoba A: DB + migracje + dane seed
 2. Osoba B: Templ + HTMX + Tailwind
 3. Osoba C (lub rotacyjnie): podatnosci vulnerable/secure + PoC + dokumentacja
 
@@ -182,5 +164,5 @@ Definition of done:
   - dzialajacy atak (vulnerable)
   - zablokowany atak (secure)
   - roznice w kodzie i wyjasnienie
-- Calosc uruchamiana jednym poleceniem (`docker compose up --build`)
+- Calosc uruchamiana lokalnie (`go run main.go` + zbudowane CSS)
 - Raport techniczny uzupelniony zgodnie z wymaganiami z `info.md`

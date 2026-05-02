@@ -42,12 +42,16 @@ Optional environment variables:
 - `PORT` (default: `:8080`)
 - `DB_PATH` (default: `app.db`)
 - `SECURITY_ENABLED` (`true` or `false`, default: `false`)
+- `ADMIN_USERNAME` (default: `admin`)
+- `ADMIN_PASSWORD` (default: `admin`)
+- `ADMIN_EMAIL` (default: `admin@example.com`)
 
 ### Available endpoints
 
 - `GET /ping` - health check, returns `pong`
 - `GET /posts` - returns published blog posts
 - `POST /login` - accepts JSON login data
+- `POST /register` - creates a new regular user account
 
 ### Available UI routes
 
@@ -74,6 +78,16 @@ The application uses a global flag named `SecurityEnabled` in [main.go](main.go)
 - When `SecurityEnabled` is `true`, the code is meant to enforce secure handling such as authentication checks, password verification, and stronger input validation.
 
 In the current codebase, this flag acts as the central switch for the lab scenario. It makes it easy to compare insecure and secure behaviour in one project without changing the API shape.
+
+## Admin Account Bootstrap
+
+On startup, the app ensures that an admin account exists in the `users` table.
+
+- Default admin credentials: `admin` / `admin`
+- You can override them with `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_EMAIL`
+- The ensured admin account always has role `admin`
+
+In secure mode, admins can delete any post. Regular users can delete only posts where they are the author.
 
 ## Notes
 
@@ -137,4 +151,4 @@ npm run watch:css
 
 1. Stage E: implement first vulnerable/secure security scenarios.
 2. Expand HTMX UX (loading/error states for more flows).
-3. Keep PostgreSQL migration and Docker Compose for final stage.
+3. Harden current SQLite-based app and finalize defense materials.

@@ -6,8 +6,11 @@ app.db
 
 node_modules/
 
+# Markdown files (except README)
+*.md
+!README.md
+
 # AI assistant/customization files
-AGENTS.md
 .github/copilot-instructions.md
 .github/instructions/
 .github/prompts/
@@ -21,6 +24,16 @@ AGENTS.md
 .windsurf/
 .windsurfrules
 .clinerules
-
-Plan.md
-Sprawozdanie.md
+.copilot/
+.github/chatmodes/
+.github/mcp/
+.github/**/*.prompt.md
+.github/**/*.instructions.md
+**/*.prompt.md
+**/*.instructions.md
+**/prompts/
+**/instructions/
+**/memories/
+.aider*
+.roo/
+.continue/

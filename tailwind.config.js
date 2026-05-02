@@ -7,6 +7,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        sakura: {
+          50: "#fff1fb",
+          100: "#ffd9f3",
+          200: "#ffb7e7",
+          500: "#ec4899",
+          700: "#be185d",
+          900: "#831843"
+        },
+        neon: {
+          50: "#ecfeff",
+          100: "#cffafe",
+          200: "#a5f3fc",
+          500: "#06b6d4",
+          700: "#0e7490",
+          900: "#164e63"
+        },
         clay: {
           50: "#faf7f2",
           100: "#efe7da",
@@ -16,10 +32,10 @@ module.exports = {
         }
       },
       backgroundImage: {
-        shell: "radial-gradient(circle at 0% 0%, rgba(208, 178, 143, 0.25), transparent 40%), radial-gradient(circle at 100% 20%, rgba(125, 158, 106, 0.18), transparent 35%), linear-gradient(180deg, #f8fafc 0%, #f5f7fb 100%)"
+        shell: "radial-gradient(circle at 12% 18%, rgba(236, 72, 153, 0.22), transparent 28%), radial-gradient(circle at 88% 12%, rgba(6, 182, 212, 0.22), transparent 24%), radial-gradient(circle at 50% 90%, rgba(168, 85, 247, 0.18), transparent 28%), linear-gradient(180deg, #fff7fb 0%, #f5fbff 46%, #fdf2f8 100%)"
       },
       fontFamily: {
-        sans: ["Manrope", "ui-sans-serif", "system-ui", "sans-serif"]
+        sans: ["M PLUS Rounded 1c", "Manrope", "ui-sans-serif", "system-ui", "sans-serif"]
       }
     }
   },

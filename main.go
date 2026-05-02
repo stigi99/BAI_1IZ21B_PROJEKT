@@ -32,14 +32,24 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	})
 
 	router.GET("/posts", h.GetPosts())
+	router.POST("/posts", h.PostCreate())
+	router.PUT("/posts/:id", h.PostUpdate())
+	router.DELETE("/posts/:id", h.PostDelete())
 	router.POST("/login", h.PostLogin())
+	router.POST("/register", h.PostRegister())
 
 	router.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/ui/posts")
 	})
 	router.GET("/ui/posts", h.PagePosts())
+	router.POST("/ui/posts/create", h.PagePostsCreate())
+	router.GET("/ui/posts/edit/:id", h.PagePostEdit())
+	router.POST("/ui/posts/edit/:id", h.PagePostEditSubmit())
+	router.POST("/ui/posts/delete/:id", h.PagePostDelete())
 	router.GET("/ui/login", h.PageLogin())
 	router.POST("/ui/login", h.PageLoginSubmit())
+	router.GET("/ui/register", h.PageRegister())
+	router.POST("/ui/register", h.PageRegisterSubmit())
 	router.GET("/ui/partials/posts", h.PagePostsPartial())
 	router.POST("/ui/partials/login", h.PageLoginPartial())
 
