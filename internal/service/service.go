@@ -147,6 +147,12 @@ func (s *Service) ValidateUserCredentials(username, password string) (bool, erro
 	}
 
 	return passwordHash == password, nil
+
+}
+
+// GetDB returns the database connection for use in vulnerable endpoints (demo only)
+func (s *Service) GetDB() *sql.DB {
+	return s.db
 }
 
 func (s *Service) IsUserAdmin(username string) (bool, error) {

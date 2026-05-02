@@ -36,18 +36,10 @@ func renderHTML(c *gin.Context, status int, pageName string, component templ.Com
 }
 
 func (h *Handler) setAuthCookie(c *gin.Context, username string) {
-	if !h.securityEnabled {
-		return
-	}
-
 	c.SetCookie(authCookieName, username, 60*60*8, "/", "", false, true)
 }
 
 func (h *Handler) currentUsername(c *gin.Context) (string, bool) {
-	if !h.securityEnabled {
-		return "", true
-	}
-
 	username, err := c.Cookie(authCookieName)
 	if err != nil || username == "" {
 		return "", false
@@ -62,10 +54,6 @@ func (h *Handler) currentUsername(c *gin.Context) (string, bool) {
 }
 
 func (h *Handler) requireLoginJSON(c *gin.Context) bool {
-	if !h.securityEnabled {
-		return true
-	}
-
 	if _, ok := h.currentUsername(c); ok {
 		return true
 	}
@@ -75,10 +63,6 @@ func (h *Handler) requireLoginJSON(c *gin.Context) bool {
 }
 
 func (h *Handler) requireLoginUI(c *gin.Context, fallback string) bool {
-	if !h.securityEnabled {
-		return true
-	}
-
 	if _, ok := h.currentUsername(c); ok {
 		return true
 	}
@@ -224,6 +208,10 @@ func (h *Handler) PostUpdate() gin.HandlerFunc {
 
 func (h *Handler) PostDelete() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if !h.requireLoginJSON(c) {
+			return
+		}
+
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post id"})
@@ -268,7 +256,7 @@ func (h *Handler) PagePosts() gin.HandlerFunc {
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
 		username, loggedIn := h.currentUsername(c)
-		if h.securityEnabled && !loggedIn && message == "" {
+		if !loggedIn && message == "" {
 			message = "Please log in to add, edit, or delete posts"
 			isError = true
 		}
@@ -279,7 +267,8 @@ func (h *Handler) PagePosts() gin.HandlerFunc {
 
 func (h *Handler) PageLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		component := views.LoginPage(h.securityEnabled, "", false)
+		username, loggedIn := h.currentUsername(c)
+		component := views.LoginPage(h.securityEnabled, loggedIn, username, "", false)
 		renderHTML(c, http.StatusOK, "login", component)
 	}
 }
@@ -288,7 +277,8 @@ func (h *Handler) PageRegister() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
-		component := views.RegisterPage(h.securityEnabled, message, isError)
+		username, loggedIn := h.currentUsername(c)
+		component := views.RegisterPage(h.securityEnabled, loggedIn, username, message, isError)
 		renderHTML(c, http.StatusOK, "register", component)
 	}
 }
@@ -322,7 +312,7 @@ func (h *Handler) PagePostsPartial() gin.HandlerFunc {
 		}
 
 		_, loggedIn := h.currentUsername(c)
-		component := views.PostsList(posts, !h.securityEnabled || loggedIn)
+		component := views.PostsList(posts, loggedIn)
 		renderHTML(c, http.StatusOK, "posts_partial", component)
 	}
 }
@@ -388,7 +378,8 @@ func (h *Handler) PagePostEdit() gin.HandlerFunc {
 
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
-		component := views.EditPostPage(h.securityEnabled, post, message, isError)
+		username, loggedIn := h.currentUsername(c)
+		component := views.EditPostPage(h.securityEnabled, loggedIn, username, post, message, isError)
 		renderHTML(c, http.StatusOK, "post_edit", component)
 	}
 }
@@ -467,6 +458,15 @@ func (h *Handler) evaluateLogin(username, password string) (message string, isEr
 		return "Username and password are required", true, http.StatusBadRequest
 	}
 
+	// Hardcoded admin account for demo purposes
+	if username == "admin" {
+		if password == "password" {
+			return fmt.Sprintf("Login successful for %s", username), false, http.StatusOK
+		}
+		return "Invalid username or password", true, http.StatusUnauthorized
+	}
+
+	// For other users, when security is enabled use stored credentials
 	if h.securityEnabled {
 		valid, err := h.svc.ValidateUserCredentials(username, password)
 		if err != nil {
@@ -478,6 +478,7 @@ func (h *Handler) evaluateLogin(username, password string) (message string, isEr
 		return fmt.Sprintf("Login successful for %s", username), false, http.StatusOK
 	}
 
+	// In insecure mode, fall back to existence check (keeps lab behavior)
 	exists, err := h.svc.UserExists(username)
 	if err != nil {
 		return "Database error", true, http.StatusInternalServerError
@@ -487,6 +488,15 @@ func (h *Handler) evaluateLogin(username, password string) (message string, isEr
 	}
 
 	return fmt.Sprintf("Login successful for %s", username), false, http.StatusOK
+}
+
+// Logout clears the auth cookie and redirects to posts UI
+func (h *Handler) Logout() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Expire the cookie
+		c.SetCookie(authCookieName, "", -1, "/", "", false, true)
+		c.Redirect(http.StatusSeeOther, "/ui/posts")
+	}
 }
 
 func (h *Handler) canDeletePost(username string, postID int) (bool, error) {
@@ -518,7 +528,11 @@ func (h *Handler) PageLoginSubmit() gin.HandlerFunc {
 			h.setAuthCookie(c, username)
 		}
 
-		component := views.LoginPage(h.securityEnabled, message, isError)
+		loggedIn := false
+		if !isError {
+			loggedIn = true
+		}
+		component := views.LoginPage(h.securityEnabled, loggedIn, username, message, isError)
 		renderHTML(c, status, "login_submit", component)
 	}
 }
@@ -534,5 +548,112 @@ func (h *Handler) PageLoginPartial() gin.HandlerFunc {
 
 		component := views.LoginResult(message, isError)
 		renderHTML(c, status, "login_partial", component)
+	}
+}
+
+// ============================================================================
+// VULNERABLE ENDPOINTS FOR DEMONSTRATION (Disabled when SECURITY_ENABLED=true)
+// ============================================================================
+
+// SearchVulnerable is a SQL Injection vulnerable endpoint
+// VULNERABLE: Concatenates user input directly into SQL query
+func (h *Handler) SearchVulnerable() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		query := c.Query("q")
+		if query == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter required"})
+			return
+		}
+
+		// VULNERABLE: Direct string concatenation - SQL Injection possible
+		sqlQuery := "SELECT id, title, post_content FROM blog WHERE title LIKE '%" + query + "%' OR post_content LIKE '%" + query + "%'"
+
+		rows, err := h.svc.GetDB().Query(sqlQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Search failed", "detail": err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		var results []map[string]interface{}
+		for rows.Next() {
+			var id int
+			var title, content string
+			if err := rows.Scan(&id, &title, &content); err != nil {
+				continue
+			}
+			results = append(results, map[string]interface{}{
+				"id":      id,
+				"title":   title,
+				"content": content,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"results": results, "query": query})
+	}
+}
+
+// CommentsVulnerable is a Stored XSS vulnerable endpoint
+// VULNERABLE: Stores comments without sanitization
+func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			PostID  int    `json:"post_id"`
+			Comment string `json:"comment"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		if req.Comment == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "comment cannot be empty"})
+			return
+		}
+
+		// VULNERABLE: Stores comment directly without sanitization
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Comment stored",
+			"post_id": req.PostID,
+			"comment": req.Comment,
+		})
+	}
+}
+
+// CsrfFormVulnerable returns a form without CSRF token protection
+// VULNERABLE: No CSRF token validation
+func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method == http.MethodGet {
+			html := `<!DOCTYPE html>
+	<html>
+	<head><title>Vulnerable Form (CSRF)</title></head>
+	<body>
+	<h1>VULNERABLE: This form has no CSRF protection</h1>
+	<form method="POST" action="/csrf-vulnerable-form">
+	  <input type="hidden" name="action" value="transfer_funds">
+	  <input type="text" name="amount" placeholder="Amount" required>
+	  <input type="text" name="to_account" placeholder="To Account" required>
+	  <button type="submit">Transfer Funds</button>
+	</form>
+	</body>
+	</html>`
+			c.Header("Content-Type", "text/html; charset=utf-8")
+			c.String(http.StatusOK, html)
+			return
+		}
+
+		// POST handler - VULNERABLE: No token validation
+		action := c.PostForm("action")
+		amount := c.PostForm("amount")
+		toAccount := c.PostForm("to_account")
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Action completed (no CSRF protection)",
+			"action":  action,
+			"amount":  amount,
+			"to":      toAccount,
+		})
 	}
 }

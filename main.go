@@ -37,6 +37,14 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.DELETE("/posts/:id", h.PostDelete())
 	router.POST("/login", h.PostLogin())
 	router.POST("/register", h.PostRegister())
+	router.GET("/ui/logout", h.Logout())
+	router.POST("/logout", h.Logout())
+
+	// Vulnerable endpoints (demonstration only - active when SECURITY_ENABLED=false)
+	router.GET("/api/search-vulnerable", h.SearchVulnerable())
+	router.POST("/api/comments-vulnerable", h.CommentsVulnerable())
+	router.GET("/csrf-vulnerable-form", h.CsrfFormVulnerable())
+	router.POST("/csrf-vulnerable-form", h.CsrfFormVulnerable())
 
 	router.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/ui/posts")

@@ -392,3 +392,33 @@ func TestIntegration_DeleteAuthorization_SecurityEnabled(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, adminDeleteOtherResp.Code)
 	}
 }
+
+func TestIntegration_CreateDeleteRequireLogin_DefaultMode(t *testing.T) {
+	router, db, _ := setupIntegrationTestApp(t)
+	t.Cleanup(func() { _ = db.Close() })
+
+	unauthCreateResp := doRequest(t, router, http.MethodPost, "/posts", `{"title":"x","post_content":"y","published":1}`)
+	if unauthCreateResp.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, unauthCreateResp.Code)
+	}
+
+	loginResp := doRequest(t, router, http.MethodPost, "/login", `{"username":"admin","password":"anything"}`)
+	if loginResp.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, loginResp.Code)
+	}
+	cookie := loginResp.Header().Get("Set-Cookie")
+	if cookie == "" {
+		t.Fatalf("expected auth cookie after login")
+	}
+
+	authCreateResp := doRequestWithCookie(t, router, http.MethodPost, "/posts", `{"title":"secure create","post_content":"ok","published":1}`, cookie)
+	if authCreateResp.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d", http.StatusCreated, authCreateResp.Code)
+	}
+	createdID := extractCreatedID(t, authCreateResp.Body.Bytes())
+
+	unauthDeleteResp := doRequest(t, router, http.MethodDelete, "/posts/"+strconv.Itoa(createdID), "")
+	if unauthDeleteResp.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, unauthDeleteResp.Code)
+	}
+}
