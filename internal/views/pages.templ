@@ -16,11 +16,12 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 			<title>{ title } • BAI Lab</title>
 			<link rel="preconnect" href="https://fonts.googleapis.com" />
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-			<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
+			<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
 			<link rel="stylesheet" href="/static/css/app.css" />
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 		</head>
-			<body class="min-h-screen flex flex-col bg-shell text-slate-900 antialiased">
+		<body class={ layoutBodyClass(securityEnabled) } data-bai-user={ username }>
+			<div id="sakura-canvas" aria-hidden="true"></div>
 			<header class="sticky top-0 z-40 border-b border-fuchsia-200/70 bg-white/75 shadow-[0_10px_30px_rgba(236,72,153,0.12)] backdrop-blur-xl">
 				<nav class="mx-auto max-w-6xl px-4 py-3 sm:px-8">
 					<div class="flex flex-wrap items-center justify-between gap-4">
@@ -69,15 +70,53 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 				</nav>
 			</header>
 
-			<main class="flex-1 mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
-				{ children... }
+			<main class="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
+				<div class="page-enter">
+					{ children... }
+				</div>
 			</main>
 
-			<footer class="mt-12 border-t border-fuchsia-200/70 bg-white/80 backdrop-blur-xl">
+			<footer class="relative z-10 mt-12 border-t border-fuchsia-200/70 bg-white/80 backdrop-blur-xl">
 				<div class="mx-auto max-w-6xl px-4 py-6 text-center text-xs font-medium text-slate-500 sm:px-8">
 					<p>BAI Security Lab © 2026 • Powered by Go, Templ, HTMX & Tailwind CSS</p>
 				</div>
 			</footer>
+
+			<div id="hud-requests" class="hud hidden sm:block" style="left:20px;width:min(380px,92vw)">
+				<div class="hud-tab" onclick="toggleHud('hud-requests')">
+					<span class="dot"></span>
+					<span>🔍 Request Inspector</span>
+					<span style="margin-left:auto;color:#9ca3af" id="reqs-count">0</span>
+				</div>
+				<div class="hud-body" id="reqs-body" style="display:none">
+					<div id="reqs-list"></div>
+					<div id="reqs-detail" class="terminal" style="display:none;font-size:10.5px;margin-top:6px"></div>
+				</div>
+			</div>
+
+			<div id="hud-timeline" class="hud hidden sm:block" style="right:20px;width:min(340px,92vw)">
+				<div class="hud-tab" onclick="toggleHud('hud-timeline')">
+					<span class="dot" style="background:#f87171"></span>
+					<span>📜 Attack Timeline</span>
+					<span style="margin-left:auto;color:#9ca3af" id="atk-count">0</span>
+					<button type="button" onclick="event.stopPropagation();exportPoC()" title="Export PoC report" style="background:#fce7f3;border:none;border-radius:6px;padding:2px 6px;margin-left:6px;font-size:10px;color:#831843;cursor:pointer">⬇ md</button>
+				</div>
+				<div class="hud-body" id="atk-body" style="display:none">
+					<div id="atk-list"></div>
+				</div>
+			</div>
+
+			<button type="button" id="cheat-tab-handle" class="cheat-tab hidden lg:block" onclick="toggleCheat()">⚔️ PAYLOADS</button>
+			<div id="cheat-drawer">
+				<div class="px-5 py-4 border-b border-fuchsia-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur z-10">
+					<div>
+						<h2 class="text-lg font-extrabold">⚔️ Payload Cheat-Sheet</h2>
+						<p class="text-xs text-slate-500">Click any to copy</p>
+					</div>
+					<button type="button" onclick="toggleCheat()" class="h-8 w-8 rounded-full bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 font-bold">✕</button>
+				</div>
+				<div id="cheat-body" class="px-5 py-4 space-y-5"></div>
+			</div>
 
 			<div id="anime-mascot" class="anime-mascot hidden md:block" aria-hidden="true">
 				<div class="anime-mascot-card">
@@ -110,7 +149,7 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 						wanderAngle += randomBetween(-0.9, 0.9);
 						const distance = randomBetween(30, 130);
 						wanderTargetX = clamp(currentX + Math.cos(wanderAngle) * distance, 16, window.innerWidth - 70);
-						wanderTargetY = clamp(currentY + Math.sin(wanderAngle) * distance, 16, window.innerHeight - 70);
+						wanderTargetY = clamp(currentY + Math.sin(wanderAngle) * distance, 80, window.innerHeight - 70);
 					};
 
 					const fleeFromPointer = () => {
@@ -140,9 +179,9 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 
 					window.addEventListener('resize', () => {
 						currentX = clamp(currentX, 16, window.innerWidth - 70);
-						currentY = clamp(currentY, 16, window.innerHeight - 70);
+						currentY = clamp(currentY, 80, window.innerHeight - 70);
 						wanderTargetX = clamp(wanderTargetX, 16, window.innerWidth - 70);
-						wanderTargetY = clamp(wanderTargetY, 16, window.innerHeight - 70);
+						wanderTargetY = clamp(wanderTargetY, 80, window.innerHeight - 70);
 					});
 
 					window.setInterval(updateWanderTarget, 900);
@@ -165,9 +204,9 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 							velocityX *= -0.85;
 							currentX = clamp(currentX, 16, window.innerWidth - 70);
 						}
-						if (currentY < 16 || currentY > window.innerHeight - 70) {
+						if (currentY < 80 || currentY > window.innerHeight - 70) {
 							velocityY *= -0.85;
-							currentY = clamp(currentY, 16, window.innerHeight - 70);
+							currentY = clamp(currentY, 80, window.innerHeight - 70);
 						}
 
 						applyPosition();
@@ -178,6 +217,7 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 					window.requestAnimationFrame(tick);
 				})();
 			</script>
+			<script src="/static/js/bai-lab-extras.js" defer></script>
 		</body>
 	</html>
 }
