@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -44,7 +45,7 @@ func setupIntegrationTestAppWithSecurity(t *testing.T, securityEnabled bool) (*g
 	db := dbpkg.InitDB(dbPath)
 
 	dbpkg.MigrateDB(db)
-	dbpkg.SeedDB(db)
+	dbpkg.SeedDB(db, securityEnabled)
 
 	router := buildRouter(db)
 
@@ -289,8 +290,10 @@ func TestIntegration_UI_LoginPartial(t *testing.T) {
 		if resp.Code != http.StatusOK {
 			t.Fatalf("expected status %d, got %d", http.StatusOK, resp.Code)
 		}
-		if !strings.Contains(resp.Body.String(), "Login successful") {
-			t.Fatalf("expected success message in body, got: %s", resp.Body.String())
+		// On success the partial responds with an HX-Redirect header (empty body) so
+		// htmx triggers a full-page navigation that refreshes the auth-aware navbar.
+		if redirect := resp.Header().Get("HX-Redirect"); redirect == "" {
+			t.Fatalf("expected HX-Redirect header on successful login, got body: %s", resp.Body.String())
 		}
 	})
 
@@ -391,6 +394,158 @@ func TestIntegration_DeleteAuthorization_SecurityEnabled(t *testing.T) {
 	if adminDeleteOtherResp.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, adminDeleteOtherResp.Code)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// SQL Injection — vulnerable vs secure mode
+// ---------------------------------------------------------------------------
+
+func decodeSearchResults(t *testing.T, body []byte) []map[string]any {
+	t.Helper()
+	var payload struct {
+		Results []map[string]any `json:"results"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode search response: %v (body=%s)", err, body)
+	}
+	return payload.Results
+}
+
+func TestIntegration_SearchSQLi_VulnerableMode(t *testing.T) {
+	router, db, _ := setupIntegrationTestAppWithSecurity(t, false)
+	t.Cleanup(func() { _ = db.Close() })
+
+	// Seed an unpublished (draft) post that the secure search must hide.
+	if _, err := db.Exec(
+		"INSERT INTO blog (title, post_content, published, author_username) VALUES (?, ?, ?, ?)",
+		"Internal draft", "Secret notes never to be published", 0, "admin",
+	); err != nil {
+		t.Fatalf("seed draft: %v", err)
+	}
+
+	t.Run("payload returns matched rows literally (no injection performed)", func(t *testing.T) {
+		// A normal-looking term that doesn't match any row.
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q=zzz_nope", "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) != 0 {
+			t.Fatalf("expected 0 results for unrelated term, got %d", len(results))
+		}
+	})
+
+	t.Run("OR 1=1 leaks every row (including drafts)", func(t *testing.T) {
+		// `' OR 1=1 --` closes the title literal and turns WHERE into a tautology.
+		payload := url.QueryEscape("' OR 1=1 --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) < 3 {
+			t.Fatalf("expected SQLi to leak ≥3 rows (incl. draft), got %d (body=%s)", len(results), resp.Body.String())
+		}
+		// The injected query bypasses the implicit `published = 1` filter, so the
+		// "Internal draft" row must surface — which is the security failure we
+		// are demonstrating.
+		gotDraft := false
+		for _, r := range results {
+			if title, _ := r["title"].(string); title == "Internal draft" {
+				gotDraft = true
+				break
+			}
+		}
+		if !gotDraft {
+			t.Fatalf("expected draft row to leak through SQLi, body=%s", resp.Body.String())
+		}
+	})
+
+	t.Run("UNION SELECT exfiltrates user table", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) == 0 {
+			t.Fatalf("expected UNION to surface rows, got 0 (body=%s)", resp.Body.String())
+		}
+		// One of the surfaced "titles" must be a username (admin/user1).
+		gotUser := false
+		for _, r := range results {
+			if title, _ := r["title"].(string); title == "admin" || title == "user1" {
+				gotUser = true
+				break
+			}
+		}
+		if !gotUser {
+			t.Fatalf("expected username to leak as title via UNION, body=%s", resp.Body.String())
+		}
+	})
+}
+
+func TestIntegration_SearchSQLi_SecureMode(t *testing.T) {
+	router, db, _ := setupIntegrationTestAppWithSecurity(t, true)
+	t.Cleanup(func() { _ = db.Close() })
+
+	if _, err := db.Exec(
+		"INSERT INTO blog (title, post_content, published, author_username) VALUES (?, ?, ?, ?)",
+		"Internal draft", "Secret notes never to be published", 0, "admin",
+	); err != nil {
+		t.Fatalf("seed draft: %v", err)
+	}
+
+	t.Run("OR 1=1 is treated as a literal pattern (no leak)", func(t *testing.T) {
+		payload := url.QueryEscape("' OR 1=1 --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) != 0 {
+			t.Fatalf("expected 0 results in secure mode, got %d (body=%s)", len(results), resp.Body.String())
+		}
+	})
+
+	t.Run("UNION payload also returns no rows (parameterized)", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) != 0 {
+			t.Fatalf("expected 0 results for UNION in secure mode, got %d", len(results))
+		}
+	})
+
+	t.Run("draft is never surfaced in secure mode", func(t *testing.T) {
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q=Secret", "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		for _, r := range results {
+			if title, _ := r["title"].(string); title == "Internal draft" {
+				t.Fatalf("secure search must filter to published=1, draft leaked: body=%s", resp.Body.String())
+			}
+		}
+	})
+
+	t.Run("force-vulnerable endpoint stays vulnerable even in secure mode", func(t *testing.T) {
+		// /api/search-vulnerable ignores SECURITY_ENABLED — it always concatenates,
+		// so the SQLi still works (this is intentional for the side-by-side demo).
+		payload := url.QueryEscape("' OR 1=1 --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search-vulnerable?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) < 2 {
+			t.Fatalf("force-vulnerable endpoint should still leak rows, got %d (body=%s)", len(results), resp.Body.String())
+		}
+	})
 }
 
 func TestIntegration_CreateDeleteRequireLogin_DefaultMode(t *testing.T) {

@@ -680,41 +680,110 @@ func (h *Handler) PageLoginPartial() gin.HandlerFunc {
 // VULNERABLE ENDPOINTS FOR DEMONSTRATION (Disabled when SECURITY_ENABLED=true)
 // ============================================================================
 
-// SearchVulnerable is a SQL Injection vulnerable endpoint.
-// VULNERABLE: Concatenates user input directly into SQL query.
-func (h *Handler) SearchVulnerable() gin.HandlerFunc {
+// Search runs a blog search through the SECURITY_ENABLED toggle:
+//   - secure mode → parameterized LIKE (input cannot break out)
+//   - insecure mode → direct string concatenation (SQL Injection)
+//
+// Returns posts as JSON.
+func (h *Handler) Search() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		query := c.Query("q")
 		if query == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'q' required"})
 			return
 		}
 
-		sqlQuery := "SELECT id, title, post_content FROM blog WHERE title LIKE '%" + query + "%' OR post_content LIKE '%" + query + "%'"
-
-		rows, err := h.svc.GetDB().Query(sqlQuery)
+		posts, err := h.svc.SearchPosts(query)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Search failed", "detail": err.Error()})
 			return
 		}
-		defer rows.Close()
 
-		var results []map[string]interface{}
-		for rows.Next() {
-			var id int
-			var title, content string
-			if err := rows.Scan(&id, &title, &content); err != nil {
-				continue
-			}
-			results = append(results, map[string]interface{}{
-				"id":      id,
-				"title":   title,
-				"content": content,
-			})
+		c.JSON(http.StatusOK, gin.H{
+			"query":   query,
+			"mode":    modeLabel(h.securityEnabled),
+			"results": posts,
+		})
+	}
+}
+
+// SearchVulnerable is a force-vulnerable SQL Injection endpoint that always
+// uses string concatenation, regardless of SECURITY_ENABLED. Kept for the
+// side-by-side defense demo.
+//
+// Try: /api/search-vulnerable?q=' OR 1=1 --
+// Or:  /api/search-vulnerable?q=' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --
+func (h *Handler) SearchVulnerable() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		query := c.Query("q")
+		if query == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'q' required"})
+			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"results": results, "query": query})
+		posts, err := h.svc.SearchPostsVulnerable(query)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Search failed", "detail": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"query":   query,
+			"mode":    "vulnerable (forced)",
+			"results": posts,
+		})
 	}
+}
+
+// PageSearch renders the full search page with the form.
+func (h *Handler) PageSearch() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
+		query := c.Query("q")
+		var posts []service.Post
+		var err error
+		if query != "" {
+			posts, err = h.svc.SearchPosts(query)
+			if err != nil {
+				component := views.SearchPage(h.securityEnabled, loggedIn, username, query, nil, "Search failed: "+err.Error(), true)
+				renderHTML(c, http.StatusOK, "search", component)
+				return
+			}
+		}
+		component := views.SearchPage(h.securityEnabled, loggedIn, username, query, posts, "", false)
+		renderHTML(c, http.StatusOK, "search", component)
+	}
+}
+
+// PageSearchPartial returns just the results fragment for HTMX.
+func (h *Handler) PageSearchPartial() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		query := c.PostForm("q")
+		if query == "" {
+			query = c.Query("q")
+		}
+		if query == "" {
+			component := views.SearchResults("", nil, "Type something to search", true, h.securityEnabled)
+			renderHTML(c, http.StatusOK, "search_partial", component)
+			return
+		}
+
+		posts, err := h.svc.SearchPosts(query)
+		if err != nil {
+			component := views.SearchResults(query, nil, "Search failed: "+err.Error(), true, h.securityEnabled)
+			renderHTML(c, http.StatusInternalServerError, "search_partial", component)
+			return
+		}
+		component := views.SearchResults(query, posts, "", false, h.securityEnabled)
+		renderHTML(c, http.StatusOK, "search_partial", component)
+	}
+}
+
+func modeLabel(secure bool) string {
+	if secure {
+		return "secure (parameterized)"
+	}
+	return "vulnerable (concatenated)"
 }
 
 // CommentsVulnerable stores comments without sanitization (Stored XSS demo).
