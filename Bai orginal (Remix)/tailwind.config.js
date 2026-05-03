@@ -35,8 +35,7 @@ module.exports = {
         shell: "radial-gradient(circle at 12% 18%, rgba(236, 72, 153, 0.22), transparent 28%), radial-gradient(circle at 88% 12%, rgba(6, 182, 212, 0.22), transparent 24%), radial-gradient(circle at 50% 90%, rgba(168, 85, 247, 0.18), transparent 28%), linear-gradient(180deg, #fff7fb 0%, #f5fbff 46%, #fdf2f8 100%)"
       },
       fontFamily: {
-        sans: ["M PLUS Rounded 1c", "Manrope", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "monospace"]
+        sans: ["M PLUS Rounded 1c", "Manrope", "ui-sans-serif", "system-ui", "sans-serif"]
       }
     }
   },

