@@ -1,26 +1,37 @@
 package service
 
-import "database/sql"
+import (
+	"database/sql"
+
+	"golang.org/x/crypto/bcrypt"
+)
 
 type Service struct {
-	db *sql.DB
+	db              *sql.DB
+	securityEnabled bool
 }
 
 type Post struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	PostContent string `json:"post_content"`
-	Published   int    `json:"published"`
-	Author      string `json:"author_username,omitempty"`
+	ID             int    `json:"id"`
+	Title          string `json:"title"`
+	PostContent    string `json:"post_content"`
+	Published      int    `json:"published"`
+	Author         string `json:"author_username,omitempty"`
+	AttachmentPath string `json:"attachment_path,omitempty"`
+	AttachmentName string `json:"attachment_name,omitempty"`
 }
 
-func New(db *sql.DB) *Service {
-	return &Service{db: db}
+func New(db *sql.DB, securityEnabled bool) *Service {
+	return &Service{db: db, securityEnabled: securityEnabled}
 }
 
 func (s *Service) GetPublishedPosts() ([]Post, error) {
 	rows, err := s.db.Query(
-		"SELECT id, title, post_content, published, COALESCE(author_username, '') FROM blog WHERE published = 1",
+		`SELECT id, title, post_content, published,
+		        COALESCE(author_username, ''),
+		        COALESCE(attachment_path, ''),
+		        COALESCE(attachment_name, '')
+		 FROM blog WHERE published = 1`,
 	)
 	if err != nil {
 		return nil, err
@@ -30,7 +41,7 @@ func (s *Service) GetPublishedPosts() ([]Post, error) {
 	var posts []Post
 	for rows.Next() {
 		var p Post
-		if err := rows.Scan(&p.ID, &p.Title, &p.PostContent, &p.Published, &p.Author); err != nil {
+		if err := rows.Scan(&p.ID, &p.Title, &p.PostContent, &p.Published, &p.Author, &p.AttachmentPath, &p.AttachmentName); err != nil {
 			return nil, err
 		}
 		posts = append(posts, p)
@@ -44,7 +55,13 @@ func (s *Service) GetPublishedPosts() ([]Post, error) {
 }
 
 func (s *Service) GetAllPosts() ([]Post, error) {
-	rows, err := s.db.Query("SELECT id, title, post_content, published, COALESCE(author_username, '') FROM blog ORDER BY id DESC")
+	rows, err := s.db.Query(
+		`SELECT id, title, post_content, published,
+		        COALESCE(author_username, ''),
+		        COALESCE(attachment_path, ''),
+		        COALESCE(attachment_name, '')
+		 FROM blog ORDER BY id DESC`,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +70,7 @@ func (s *Service) GetAllPosts() ([]Post, error) {
 	var posts []Post
 	for rows.Next() {
 		var p Post
-		if err := rows.Scan(&p.ID, &p.Title, &p.PostContent, &p.Published, &p.Author); err != nil {
+		if err := rows.Scan(&p.ID, &p.Title, &p.PostContent, &p.Published, &p.Author, &p.AttachmentPath, &p.AttachmentName); err != nil {
 			return nil, err
 		}
 		posts = append(posts, p)
@@ -69,16 +86,23 @@ func (s *Service) GetAllPosts() ([]Post, error) {
 func (s *Service) GetPostByID(id int) (Post, error) {
 	var p Post
 	err := s.db.QueryRow(
-		"SELECT id, title, post_content, published, COALESCE(author_username, '') FROM blog WHERE id = ?",
+		`SELECT id, title, post_content, published,
+		        COALESCE(author_username, ''),
+		        COALESCE(attachment_path, ''),
+		        COALESCE(attachment_name, '')
+		 FROM blog WHERE id = ?`,
 		id,
-	).Scan(&p.ID, &p.Title, &p.PostContent, &p.Published, &p.Author)
+	).Scan(&p.ID, &p.Title, &p.PostContent, &p.Published, &p.Author, &p.AttachmentPath, &p.AttachmentName)
 	return p, err
 }
 
-func (s *Service) CreatePost(title, content string, published int, author string) (int64, error) {
+// CreatePost inserts a new post. Use empty strings for attachmentPath/Name when
+// no file is attached.
+func (s *Service) CreatePost(title, content string, published int, author, attachmentPath, attachmentName string) (int64, error) {
 	res, err := s.db.Exec(
-		"INSERT INTO blog (title, post_content, published, author_username) VALUES (?, ?, ?, ?)",
-		title, content, published, author,
+		`INSERT INTO blog (title, post_content, published, author_username, attachment_path, attachment_name)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		title, content, published, author, attachmentPath, attachmentName,
 	)
 	if err != nil {
 		return 0, err
@@ -86,10 +110,22 @@ func (s *Service) CreatePost(title, content string, published int, author string
 	return res.LastInsertId()
 }
 
-func (s *Service) UpdatePost(id int, title, content string, published int) error {
+// UpdatePost updates a post. Pass empty strings for attachment params to leave
+// the existing attachment unchanged; pass non-empty values to replace it.
+func (s *Service) UpdatePost(id int, title, content string, published int, attachmentPath, attachmentName string) error {
+	if attachmentPath == "" && attachmentName == "" {
+		_, err := s.db.Exec(
+			`UPDATE blog SET title = ?, post_content = ?, published = ? WHERE id = ?`,
+			title, content, published, id,
+		)
+		return err
+	}
+
 	_, err := s.db.Exec(
-		"UPDATE blog SET title = ?, post_content = ?, published = ? WHERE id = ?",
-		title, content, published, id,
+		`UPDATE blog SET title = ?, post_content = ?, published = ?,
+		                  attachment_path = ?, attachment_name = ?
+		 WHERE id = ?`,
+		title, content, published, attachmentPath, attachmentName, id,
 	)
 	return err
 }
@@ -111,12 +147,31 @@ func (s *Service) GetPostAuthor(id int) (string, error) {
 	return author.String, nil
 }
 
-func (s *Service) CreateUser(username, passwordHash, email string) error {
-	_, err := s.db.Exec(
+// CreateUser registers a new user.
+// In secure mode the password is hashed with bcrypt before storage.
+// In insecure mode the password is stored in plaintext (Sensitive Data Exposure).
+func (s *Service) CreateUser(username, password, email string) error {
+	stored, err := s.preparePassword(password)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(
 		"INSERT INTO users (username, password_hash, email, role) VALUES (?, ?, ?, 'user')",
-		username, passwordHash, email,
+		username, stored, email,
 	)
 	return err
+}
+
+func (s *Service) preparePassword(plain string) (string, error) {
+	if !s.securityEnabled {
+		// VULNERABLE: plaintext storage (Sensitive Data Exposure)
+		return plain, nil
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
 }
 
 func (s *Service) UserExists(username string) (bool, error) {
@@ -133,12 +188,16 @@ func (s *Service) UserExists(username string) (bool, error) {
 	return true, nil
 }
 
+// ValidateUserCredentials checks whether username + password authenticate.
+// Secure mode: bcrypt comparison.
+// Insecure mode: only verifies the user exists (Broken Authentication —
+// password is ignored to keep the legacy lab behavior).
 func (s *Service) ValidateUserCredentials(username, password string) (bool, error) {
-	var passwordHash string
+	var stored string
 	err := s.db.QueryRow(
 		"SELECT password_hash FROM users WHERE username = ?",
 		username,
-	).Scan(&passwordHash)
+	).Scan(&stored)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
@@ -146,8 +205,15 @@ func (s *Service) ValidateUserCredentials(username, password string) (bool, erro
 		return false, err
 	}
 
-	return passwordHash == password, nil
+	if !s.securityEnabled {
+		// VULNERABLE: Broken Authentication — accept any password for an existing user
+		return true, nil
+	}
 
+	if err := bcrypt.CompareHashAndPassword([]byte(stored), []byte(password)); err != nil {
+		return false, nil
+	}
+	return true, nil
 }
 
 // GetDB returns the database connection for use in vulnerable endpoints (demo only)

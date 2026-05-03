@@ -44,7 +44,7 @@ func setupIntegrationTestAppWithSecurity(t *testing.T, securityEnabled bool) (*g
 	db := dbpkg.InitDB(dbPath)
 
 	dbpkg.MigrateDB(db)
-	dbpkg.SeedDB(db)
+	dbpkg.SeedDB(db, securityEnabled)
 
 	router := buildRouter(db)
 
@@ -289,8 +289,10 @@ func TestIntegration_UI_LoginPartial(t *testing.T) {
 		if resp.Code != http.StatusOK {
 			t.Fatalf("expected status %d, got %d", http.StatusOK, resp.Code)
 		}
-		if !strings.Contains(resp.Body.String(), "Login successful") {
-			t.Fatalf("expected success message in body, got: %s", resp.Body.String())
+		// On success the partial responds with an HX-Redirect header (empty body) so
+		// htmx triggers a full-page navigation that refreshes the auth-aware navbar.
+		if redirect := resp.Header().Get("HX-Redirect"); redirect == "" {
+			t.Fatalf("expected HX-Redirect header on successful login, got body: %s", resp.Body.String())
 		}
 	})
 

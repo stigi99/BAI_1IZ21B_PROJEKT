@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 
 	"BAI_1IZ21B_PROJEKT/internal/config"
 	"BAI_1IZ21B_PROJEKT/internal/db"
@@ -18,13 +19,16 @@ import (
 // When true proper authentication and input validation are enforced.
 var SecurityEnabled = false
 
+const uploadsDir = "./uploads"
+
 // ---- Entry point ------------------------------------------------------------
 
 func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router := gin.Default()
 	router.Static("/static", "./static")
+	router.Static("/uploads", uploadsDir)
 
-	svc := service.New(dbConn)
+	svc := service.New(dbConn, SecurityEnabled)
 	h := handlers.New(svc, SecurityEnabled)
 
 	router.GET("/ping", func(c *gin.Context) {
@@ -59,7 +63,9 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.GET("/ui/register", h.PageRegister())
 	router.POST("/ui/register", h.PageRegisterSubmit())
 	router.GET("/ui/partials/posts", h.PagePostsPartial())
+	router.POST("/ui/partials/posts/create", h.PagePostsCreatePartial())
 	router.POST("/ui/partials/login", h.PageLoginPartial())
+	router.POST("/ui/partials/register", h.PageRegisterPartial())
 
 	return router
 }
@@ -68,15 +74,19 @@ func main() {
 	cfg := config.Load()
 	SecurityEnabled = cfg.SecurityEnabled
 
+	if err := os.MkdirAll(uploadsDir, 0o755); err != nil {
+		log.Fatalf("Failed to create uploads dir: %v", err)
+	}
+
 	dbConn := db.InitDB(cfg.DBPath)
 	defer dbConn.Close()
 
 	db.MigrateDB(dbConn)
-	db.SeedDB(dbConn)
+	db.SeedDB(dbConn, SecurityEnabled)
 
 	router := buildRouter(dbConn)
 
-	log.Printf("Starting server on %s", cfg.Port)
+	log.Printf("Starting server on %s (SECURITY_ENABLED=%v)", cfg.Port, SecurityEnabled)
 	if err := router.Run(cfg.Port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
