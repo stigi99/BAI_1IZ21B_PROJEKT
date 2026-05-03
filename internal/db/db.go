@@ -47,7 +47,7 @@ func InitDB(filepath string) *sql.DB {
 	return db
 }
 
-// MigrateDB creates the blog and users tables if they do not already exist.
+// MigrateDB creates the blog, users, and comments tables if they do not already exist.
 func MigrateDB(db *sql.DB) {
 	createBlog := `
 	CREATE TABLE IF NOT EXISTS blog (
@@ -69,7 +69,16 @@ func MigrateDB(db *sql.DB) {
 		role          VARCHAR(20) NOT NULL DEFAULT 'user'
 	);`
 
-	for _, stmt := range []string{createBlog, createUsers} {
+	createComments := `
+	CREATE TABLE IF NOT EXISTS comments (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		post_id    INTEGER NOT NULL,
+		author     VARCHAR(50) NOT NULL DEFAULT 'anonymous',
+		body       TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	for _, stmt := range []string{createBlog, createUsers, createComments} {
 		if _, err := db.Exec(stmt); err != nil {
 			log.Fatalf("MigrateDB error: %v", err)
 		}
@@ -109,6 +118,8 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 		}{
 			{"Hello World", "This is the first blog post.", adminUsername, 1},
 			{"Go is great", "Go makes it easy to build reliable software.", adminUsername, 1},
+			// Post by user1 — used for the IDOR / Broken Access Control demo.
+			{"User1's Post", "This post belongs to user1. In insecure mode any authenticated user can delete it.", "user1", 1},
 		}
 		for _, p := range posts {
 			if _, err := db.Exec(
@@ -117,6 +128,23 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 			); err != nil {
 				log.Printf("SeedDB blog error: %v", err)
 			}
+		}
+	}
+
+	// Seed a demo XSS comment on post 1 when the comments table is empty.
+	var commentCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM comments").Scan(&commentCount); err != nil {
+		log.Printf("SeedDB count comments error: %v", err)
+	} else if commentCount == 0 {
+		// This stored XSS payload is intentionally inserted in insecure mode so
+		// the demo works out of the box. In secure mode the body is HTML-escaped
+		// before storage, so the script tag is inert.
+		xssBody := `<img src=x onerror="alert('Stored XSS! cookie='+document.cookie)"> — demo payload`
+		if _, err := db.Exec(
+			"INSERT INTO comments (post_id, author, body) VALUES (1, 'attacker', ?)",
+			xssBody,
+		); err != nil {
+			log.Printf("SeedDB comments error: %v", err)
 		}
 	}
 

@@ -2,13 +2,54 @@ package service
 
 import (
 	"database/sql"
+	"html"
+	"sync"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
+// loginRecord tracks failed login attempts for a username (used in secure mode
+// to enforce a rate limit and slow down brute-force attacks).
+type loginRecord struct {
+	failures int
+	resetAt  time.Time
+}
+
+// rateLimiter is a simple in-memory store; each service instance keeps its own
+// so that tests remain isolated.
+type rateLimiter struct {
+	mu      sync.Mutex
+	records map[string]*loginRecord
+}
+
+func newRateLimiter() *rateLimiter {
+	return &rateLimiter{records: make(map[string]*loginRecord)}
+}
+
 type Service struct {
 	db              *sql.DB
 	securityEnabled bool
+	rl              *rateLimiter
+}
+
+// Comment is a blog comment (may contain raw HTML in insecure mode for the
+// Stored XSS demo).
+type Comment struct {
+	ID        int    `json:"id"`
+	PostID    int    `json:"post_id"`
+	Author    string `json:"author"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
+}
+
+// UserRecord exposes user rows for the Sensitive Data Exposure demo page.
+type UserRecord struct {
+	ID           int
+	Username     string
+	PasswordHash string
+	Email        string
+	Role         string
 }
 
 type Post struct {
@@ -22,7 +63,7 @@ type Post struct {
 }
 
 func New(db *sql.DB, securityEnabled bool) *Service {
-	return &Service{db: db, securityEnabled: securityEnabled}
+	return &Service{db: db, securityEnabled: securityEnabled, rl: newRateLimiter()}
 }
 
 func (s *Service) GetPublishedPosts() ([]Post, error) {
@@ -304,4 +345,147 @@ func (s *Service) IsUserAdmin(username string) (bool, error) {
 	}
 
 	return role == "admin", nil
+}
+
+// ============================================================================
+// Comments — Stored XSS demo
+// ============================================================================
+
+// CreateComment inserts a comment.
+// In insecure mode the body is stored verbatim (Stored XSS risk).
+// In secure mode the body is HTML-escaped before storage so script tags cannot
+// execute when the comment is rendered.
+func (s *Service) CreateComment(postID int, author, body string) (int64, error) {
+	stored := body
+	if s.securityEnabled {
+		stored = html.EscapeString(body)
+	}
+	res, err := s.db.Exec(
+		"INSERT INTO comments (post_id, author, body) VALUES (?, ?, ?)",
+		postID, author, stored,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// GetCommentsByPostID returns all comments for a given post, ordered oldest
+// first.
+func (s *Service) GetCommentsByPostID(postID int) ([]Comment, error) {
+	rows, err := s.db.Query(
+		`SELECT id, post_id, author, body, created_at FROM comments WHERE post_id = ? ORDER BY id ASC`,
+		postID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []Comment
+	for rows.Next() {
+		var c Comment
+		if err := rows.Scan(&c.ID, &c.PostID, &c.Author, &c.Body, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		comments = append(comments, c)
+	}
+	return comments, rows.Err()
+}
+
+// ============================================================================
+// Users — Sensitive Data Exposure demo
+// ============================================================================
+
+// GetAllUsers returns all rows from the users table.
+// Used by the /ui/db-expose route to demonstrate Sensitive Data Exposure:
+// in insecure mode password_hash contains the plaintext password.
+func (s *Service) GetAllUsers() ([]UserRecord, error) {
+	rows, err := s.db.Query(
+		`SELECT id, username, password_hash, email, role FROM users ORDER BY id ASC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []UserRecord
+	for rows.Next() {
+		var u UserRecord
+		if err := rows.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Email, &u.Role); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+// UpdateUserEmail changes the email for the given username.
+// Used by the CSRF demo to perform a meaningful state change.
+func (s *Service) UpdateUserEmail(username, newEmail string) error {
+	_, err := s.db.Exec(
+		"UPDATE users SET email = ? WHERE username = ?",
+		newEmail, username,
+	)
+	return err
+}
+
+// GetUserEmail returns the current email for a username.
+func (s *Service) GetUserEmail(username string) (string, error) {
+	var email sql.NullString
+	err := s.db.QueryRow("SELECT email FROM users WHERE username = ?", username).Scan(&email)
+	if err != nil {
+		return "", err
+	}
+	return email.String, nil
+}
+
+// ============================================================================
+// Rate limiting — Broken Authentication / Brute Force demo
+// ============================================================================
+
+const (
+	maxFailures    = 5
+	lockoutSeconds = 60
+)
+
+// CheckRateLimit returns true (allowed) when the username has not exceeded the
+// failure threshold within the lockout window. Always returns true in insecure
+// mode so brute-force is trivially possible.
+func (s *Service) CheckRateLimit(username string) bool {
+	if !s.securityEnabled {
+		return true
+	}
+	s.rl.mu.Lock()
+	defer s.rl.mu.Unlock()
+
+	rec, ok := s.rl.records[username]
+	if !ok {
+		return true
+	}
+	if time.Now().After(rec.resetAt) {
+		delete(s.rl.records, username)
+		return true
+	}
+	return rec.failures < maxFailures
+}
+
+// RecordLoginFailure increments the failure counter for the username.
+// No-op in insecure mode.
+func (s *Service) RecordLoginFailure(username string) {
+	if !s.securityEnabled {
+		return
+	}
+	s.rl.mu.Lock()
+	defer s.rl.mu.Unlock()
+
+	rec, ok := s.rl.records[username]
+	if !ok || time.Now().After(rec.resetAt) {
+		s.rl.records[username] = &loginRecord{
+			failures: 1,
+			resetAt:  time.Now().Add(lockoutSeconds * time.Second),
+		}
+		return
+	}
+	rec.failures++
 }
