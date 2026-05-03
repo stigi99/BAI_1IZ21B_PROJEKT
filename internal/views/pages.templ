@@ -34,6 +34,10 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 								<span>📝</span>
 								<span>Posts</span>
 							</a>
+							<a href="/ui/search" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="SQL Injection demo">
+								<span>🔎</span>
+								<span>Search</span>
+							</a>
 							if loggedIn {
 								<span class="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-gradient-to-r from-emerald-100 to-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm shadow-emerald-200">
 									<span>✅</span>
@@ -489,6 +493,114 @@ templ RegisterPage(securityEnabled bool, loggedIn bool, username string, message
 					Already have an account?
 					<a href="/ui/login" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Login here</a>
 				</p>
+			</div>
+		</div>
+	}
+}
+
+// SearchResults renders the list of matched posts (or an empty/error state).
+// Used both standalone (HTMX swap target) and embedded inside SearchPage.
+templ SearchResults(query string, posts []service.Post, message string, isError bool, securityEnabled bool) {
+	<div id="search-results" class="space-y-3">
+		if message != "" {
+			@ResultMessage(message, isError)
+		}
+		if query != "" && message == "" {
+			<div class="text-xs text-slate-500">
+				Mode:
+				if securityEnabled {
+					<span class="font-bold text-emerald-700">🛡️ secure (parameterized LIKE ?)</span>
+				} else {
+					<span class="font-bold text-rose-700">⚠️ vulnerable (string concatenation)</span>
+				}
+				 • { fmt.Sprintf("%d", len(posts)) } result(s) for: <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-800">{ query }</code>
+			</div>
+		}
+		if len(posts) == 0 && query != "" && message == "" {
+			<div class="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6 text-center text-sm text-slate-600">
+				No posts matched.
+				if !securityEnabled {
+					<p class="mt-1 text-xs text-slate-500">Hint: try <code class="font-mono">' OR 1=1 --</code> or a UNION payload from the cheat-sheet.</p>
+				}
+			</div>
+		}
+		for _, p := range posts {
+			<article class="rounded-2xl border border-fuchsia-100 bg-white/95 p-4 shadow-sm">
+				<div class="flex items-start justify-between gap-3 mb-2">
+					<h3 class="text-base font-bold text-slate-900">{ p.Title }</h3>
+					if p.Published == 1 {
+						<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">✓ Published</span>
+					} else {
+						<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">⊙ Draft</span>
+					}
+				</div>
+				<p class="text-xs text-slate-500 mb-2">ID #{ fmt.Sprintf("%d", p.ID) }
+					if p.Author != "" {
+						 • by <span class="font-semibold text-fuchsia-700">{ p.Author }</span>
+					}
+				</p>
+				<p class="text-sm text-slate-700 leading-relaxed line-clamp-3">{ p.PostContent }</p>
+			</article>
+		}
+	</div>
+}
+
+templ SearchPage(securityEnabled bool, loggedIn bool, username string, query string, posts []service.Post, message string, isError bool) {
+	@Layout("Search (SQLi demo)", securityEnabled, loggedIn, username) {
+		<div class="space-y-6">
+			<div>
+				<h1 class="text-3xl font-bold text-slate-900">🔎 Search posts</h1>
+				<p class="text-slate-600 mt-2 text-sm">
+					This endpoint is the SQL Injection demonstration. Toggle <code class="font-mono">SECURITY_ENABLED</code> and try the same payload twice — the only difference is one <code class="font-mono">?</code> placeholder in <code class="font-mono">internal/service/service.go</code>.
+				</p>
+			</div>
+
+			<div class="grid lg:grid-cols-3 gap-6">
+				<div class="lg:col-span-1 space-y-4">
+					<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-5 shadow-sm">
+						<form method="get" action="/ui/search"
+							hx-post="/ui/partials/search"
+							hx-target="#search-results"
+							hx-swap="outerHTML"
+							class="space-y-3">
+							<label class="block text-sm font-semibold text-slate-700" for="search-q">Query</label>
+							<input id="search-q" name="q" value={ query } placeholder="Enter a search term..." required
+								class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition" />
+							<button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300">
+								🔍 Search
+								<span class="htmx-indicator">...</span>
+							</button>
+						</form>
+					</div>
+
+					<div class="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 text-xs space-y-2">
+						<p class="font-bold text-rose-800">💉 SQLi payloads to try (insecure mode):</p>
+						<ul class="space-y-1.5 text-rose-900">
+							<li><code class="block bg-white/80 rounded p-1.5 font-mono text-[11px] break-all">' OR 1=1 --</code></li>
+							<li><code class="block bg-white/80 rounded p-1.5 font-mono text-[11px] break-all">' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --</code></li>
+							<li><code class="block bg-white/80 rounded p-1.5 font-mono text-[11px] break-all">' UNION SELECT 1, name, sql, 1, '', '', '' FROM sqlite_master --</code></li>
+						</ul>
+						<p class="text-[11px] text-rose-700 mt-2 leading-snug">
+							In secure mode the payload becomes part of the LIKE pattern instead of SQL — search returns 0 results, no injection.
+						</p>
+					</div>
+
+					<div class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs">
+						<p class="font-bold text-emerald-800 mb-2">🛡️ Defense in this app:</p>
+						<ul class="space-y-1 text-emerald-900 list-disc list-inside">
+							<li>Parameterized <code class="font-mono">?</code> placeholders</li>
+							<li>Only <code class="font-mono">published = 1</code> rows visible</li>
+							<li>No string concatenation reaches the driver</li>
+						</ul>
+						<p class="text-[11px] text-emerald-700 mt-2">
+							Force-vulnerable JSON: <a href="/api/search-vulnerable?q=' OR 1=1 --" class="underline font-mono">/api/search-vulnerable?q=…</a>
+						</p>
+					</div>
+				</div>
+
+				<div class="lg:col-span-2">
+					@SearchResults(query, posts, message, isError, securityEnabled)
+				</div>
 			</div>
 		</div>
 	}

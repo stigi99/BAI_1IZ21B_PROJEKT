@@ -96,6 +96,75 @@ func (s *Service) GetPostByID(id int) (Post, error) {
 	return p, err
 }
 
+// SearchPosts searches blog posts by query. Honors the SECURITY_ENABLED toggle:
+// secure mode uses parameterized LIKE; insecure mode concatenates user input
+// into the SQL string (classic SQL Injection).
+func (s *Service) SearchPosts(query string) ([]Post, error) {
+	if s.securityEnabled {
+		return s.SearchPostsSecure(query)
+	}
+	return s.SearchPostsVulnerable(query)
+}
+
+// SearchPostsVulnerable concatenates the user-supplied query directly into the
+// SQL string. This is the demo SQL Injection sink used regardless of the
+// SECURITY_ENABLED toggle (so the lab can always show a "force vulnerable"
+// endpoint side-by-side).
+//
+// Example payloads:
+//   - `' OR 1=1 --`   → returns every row (drafts included)
+//   - `' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --`
+//     → leaks credentials through the title/content columns
+func (s *Service) SearchPostsVulnerable(query string) ([]Post, error) {
+	// VULNERABLE: direct string concatenation into the SQL statement.
+	sqlQuery := "SELECT id, title, post_content, published, " +
+		"COALESCE(author_username, ''), COALESCE(attachment_path, ''), COALESCE(attachment_name, '') " +
+		"FROM blog WHERE title LIKE '%" + query + "%' OR post_content LIKE '%" + query + "%'"
+
+	rows, err := s.db.Query(sqlQuery)
+	if err != nil {
+		return nil, err
+	}
+	return scanPostRows(rows)
+}
+
+// SearchPostsSecure runs the same query through a parameterized LIKE so user
+// input cannot break out of the string literal — special characters become
+// part of the search term, not SQL syntax.
+func (s *Service) SearchPostsSecure(query string) ([]Post, error) {
+	pattern := "%" + query + "%"
+	rows, err := s.db.Query(
+		`SELECT id, title, post_content, published,
+		        COALESCE(author_username, ''),
+		        COALESCE(attachment_path, ''),
+		        COALESCE(attachment_name, '')
+		 FROM blog
+		 WHERE published = 1
+		   AND (title LIKE ? OR post_content LIKE ?)`,
+		pattern, pattern,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return scanPostRows(rows)
+}
+
+func scanPostRows(rows *sql.Rows) ([]Post, error) {
+	defer rows.Close()
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		if err := rows.Scan(&p.ID, &p.Title, &p.PostContent, &p.Published, &p.Author, &p.AttachmentPath, &p.AttachmentName); err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return posts, nil
+}
+
 // CreatePost inserts a new post. Use empty strings for attachmentPath/Name when
 // no file is attached.
 func (s *Service) CreatePost(title, content string, published int, author, attachmentPath, attachmentName string) (int64, error) {

@@ -44,7 +44,9 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.GET("/ui/logout", h.Logout())
 	router.POST("/logout", h.Logout())
 
-	// Vulnerable endpoints (demonstration only - active when SECURITY_ENABLED=false)
+	// SQL Injection demo: /api/search honors SECURITY_ENABLED, while
+	// /api/search-vulnerable is always concatenation-based (forced vulnerable).
+	router.GET("/api/search", h.Search())
 	router.GET("/api/search-vulnerable", h.SearchVulnerable())
 	router.POST("/api/comments-vulnerable", h.CommentsVulnerable())
 	router.GET("/csrf-vulnerable-form", h.CsrfFormVulnerable())
@@ -62,10 +64,12 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.POST("/ui/login", h.PageLoginSubmit())
 	router.GET("/ui/register", h.PageRegister())
 	router.POST("/ui/register", h.PageRegisterSubmit())
+	router.GET("/ui/search", h.PageSearch())
 	router.GET("/ui/partials/posts", h.PagePostsPartial())
 	router.POST("/ui/partials/posts/create", h.PagePostsCreatePartial())
 	router.POST("/ui/partials/login", h.PageLoginPartial())
 	router.POST("/ui/partials/register", h.PageRegisterPartial())
+	router.POST("/ui/partials/search", h.PageSearchPartial())
 
 	return router
 }
