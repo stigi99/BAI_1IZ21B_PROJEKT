@@ -24,48 +24,41 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 			<div id="sakura-canvas" aria-hidden="true"></div>
 			<header class="sticky top-0 z-40 border-b border-fuchsia-200/70 bg-white/75 shadow-[0_10px_30px_rgba(236,72,153,0.12)] backdrop-blur-xl">
 				<nav class="mx-auto max-w-6xl px-4 py-3 sm:px-8">
-					<div class="flex flex-wrap items-center justify-between gap-4">
-						<a href="/ui/posts" class="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 px-4 py-2 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300">
-							<span class="text-2xl">🌸</span>
+					<div class="flex flex-wrap items-center gap-3">
+						<a href="/ui/posts" class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 px-4 py-2 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300">
+							<span class="text-xl">🌸</span>
 							<span>BAI Lab</span>
 						</a>
-						<div class="flex flex-wrap items-center gap-2 sm:gap-3">
-							<a href="/ui/posts" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Browse all posts">
-								<span>📝</span>
-								<span>Posts</span>
+						<div class="flex flex-wrap items-center gap-2 ml-auto">
+							<a href="/ui/posts" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Browse all posts">
+								<span>📝</span><span>Posts</span>
 							</a>
-							<a href="/ui/search" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="SQL Injection demo">
-								<span>🔎</span>
-								<span>Search</span>
+							<a href="/ui/vuln-demos" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="All vulnerability demos">
+								<span>✏️</span><span>Vuln Demos</span>
 							</a>
 							if loggedIn {
-								<span class="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-gradient-to-r from-emerald-100 to-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm shadow-emerald-200">
+								<span class="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-gradient-to-r from-emerald-100 to-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm shadow-emerald-200">
 									<span>✅</span>
-									<span>Logged in as</span>
+									<span class="hidden sm:inline">Logged in as</span>
 									<span class="font-extrabold tracking-wide">{ username }</span>
 								</span>
-								<a href="/ui/logout" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Logout">
-									<span>🔓</span>
-									<span>Logout</span>
+								<a href="/ui/logout" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Logout">
+									<span>🔓</span><span>Logout</span>
 								</a>
 							} else {
-								<a href="/ui/login" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Log in to your account">
-									<span>🔑</span>
-									<span>Login</span>
+								<a href="/ui/login" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Log in to your account">
+									<span>🔑</span><span>Login</span>
 								</a>
-								<a href="/ui/register" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Create a new account">
-									<span>✍️</span>
-									<span>Register</span>
+								<a href="/ui/register" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Create a new account">
+									<span>✍️</span><span>Register</span>
 								</a>
 							}
-						</div>
-						<div class="flex items-center gap-2">
 							if securityEnabled {
-								<span class="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-gradient-to-r from-emerald-400 to-cyan-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-cyan-200">
+								<span class="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-gradient-to-r from-emerald-400 to-cyan-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-cyan-200" title="SECURITY_ENABLED=true">
 									🛡️ Secure
 								</span>
 							} else {
-								<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-gradient-to-r from-rose-400 to-orange-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-rose-200">
+								<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-gradient-to-r from-rose-400 to-orange-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-rose-200" title="SECURITY_ENABLED=false">
 									⚠️ Vulnerable
 								</span>
 							}
@@ -112,12 +105,19 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 
 			<button type="button" id="cheat-tab-handle" class="cheat-tab hidden lg:block" onclick="toggleCheat()">⚔️ PAYLOADS</button>
 			<div id="cheat-drawer">
-				<div class="px-5 py-4 border-b border-fuchsia-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur z-10">
-					<div>
-						<h2 class="text-lg font-extrabold">⚔️ Payload Cheat-Sheet</h2>
-						<p class="text-xs text-slate-500">Click any to copy</p>
+				<div class="px-5 py-4 border-b border-fuchsia-100 sticky top-0 bg-white/95 backdrop-blur z-10">
+					<div class="flex items-center justify-between mb-3">
+						<div>
+							<h2 class="text-lg font-extrabold">⚔️ Payload Cheat-Sheet</h2>
+							<p class="text-xs text-slate-500">Click any to copy</p>
+						</div>
+						<button type="button" onclick="toggleCheat()" class="h-8 w-8 rounded-full bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 font-bold">✕</button>
 					</div>
-					<button type="button" onclick="toggleCheat()" class="h-8 w-8 rounded-full bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 font-bold">✕</button>
+					<input id="cheat-filter" type="search" placeholder="🔍 Filter (sql, xss, csrf, jwt...)" autocomplete="off"
+						class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition" />
+					<p class="mt-2 text-[10px] text-slate-500">
+						Each section: <strong class="text-slate-700">co to</strong> · <strong class="text-slate-700">jak wykryć</strong> · <strong class="text-slate-700">obrona</strong> · payloady (klik=kopiuj). <span id="cheat-counter">0/0 sekcji</span>.
+					</p>
 				</div>
 				<div id="cheat-body" class="px-5 py-4 space-y-5"></div>
 			</div>
@@ -269,18 +269,23 @@ templ PostsList(posts []service.Post, canEdit bool) {
 							</a>
 						</div>
 					}
-					if canEdit {
-						<div class="flex items-center gap-2 pt-4 border-t border-fuchsia-100">
-							<a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 transition" href={ templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", p.ID)) } title="Edit this post">
-							✏️ Edit
-							</a>
-							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/ui/posts/delete/%d", p.ID)) } class="inline" onsubmit="return confirm('Are you sure you want to delete this post?');">
-								<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition" type="submit" title="Delete this post">
-								🗑️ Delete
-								</button>
-							</form>
-						</div>
-					}
+					<div class="flex flex-wrap items-center gap-2 pt-4 border-t border-fuchsia-100">
+						<a class="inline-flex items-center gap-1.5 text-sm font-semibold text-fuchsia-700 hover:text-fuchsia-900 transition" href={ templ.SafeURL(fmt.Sprintf("/ui/posts/view/%d", p.ID)) } title="View post and comments">
+							Read more →
+						</a>
+						if canEdit {
+							<span class="ml-auto flex items-center gap-2">
+								<a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 transition" href={ templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", p.ID)) } title="Edit this post">
+									✏️ Edit
+								</a>
+								<form method="post" action={ templ.SafeURL(fmt.Sprintf("/ui/posts/delete/%d", p.ID)) } class="inline" onsubmit="return confirm('Are you sure you want to delete this post?');">
+									<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition" type="submit" title="Delete this post">
+										🗑️ Delete
+									</button>
+								</form>
+							</span>
+						}
+					</div>
 				</article>
 			}
 		</div>
@@ -606,6 +611,106 @@ templ SearchPage(securityEnabled bool, loggedIn bool, username string, query str
 	}
 }
 
+// CommentsList renders a list of comments. In insecure mode the body is
+// rendered as raw HTML (Stored XSS sink — `<script>` payloads execute when the
+// page loads). In secure mode the body is rendered through templ's default
+// auto-escaping (`{ c.Body }`), so HTML is shown as text.
+templ CommentsList(comments []service.Comment, securityEnabled bool) {
+	<div id="comments-list" class="space-y-3">
+		if len(comments) == 0 {
+			<p class="text-sm text-slate-500 italic">No comments yet — be the first.</p>
+		}
+		for _, c := range comments {
+			<article class="rounded-xl border border-fuchsia-100 bg-white/95 p-4 shadow-sm">
+				<div class="flex items-center justify-between mb-2">
+					<span class="text-xs font-semibold text-fuchsia-700">
+						if c.Author != "" {
+							{ c.Author }
+						} else {
+							anonymous
+						}
+					</span>
+					<span class="text-[10px] text-slate-400 font-mono">{ c.CreatedAt }</span>
+				</div>
+				if securityEnabled {
+					<div class="text-sm text-slate-800 whitespace-pre-wrap break-words">{ c.Body }</div>
+				} else {
+					<div class="text-sm text-slate-800 break-words">
+						@templ.Raw(c.Body)
+					</div>
+				}
+			</article>
+		}
+	</div>
+}
+
+templ PostDetailPage(securityEnabled bool, loggedIn bool, username string, post service.Post, comments []service.Comment, message string, isError bool) {
+	@Layout("Post #" + fmt.Sprintf("%d", post.ID), securityEnabled, loggedIn, username) {
+		<div class="max-w-3xl mx-auto space-y-6">
+			<div>
+				<a href="/ui/posts" class="text-sm font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">← Back to Posts</a>
+			</div>
+
+			<article class="rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-[0_12px_40px_rgba(236,72,153,0.10)]">
+				<h1 class="text-3xl font-bold text-slate-900 mb-2">{ post.Title }</h1>
+				<p class="text-xs text-slate-500 mb-4">
+					Post #{ fmt.Sprintf("%d", post.ID) }
+					if post.Author != "" {
+						 • by <span class="font-semibold text-fuchsia-700">{ post.Author }</span>
+					}
+				</p>
+				<p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{ post.PostContent }</p>
+			</article>
+
+			<section class="rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-sm">
+				<h2 class="text-xl font-bold text-slate-900 mb-2">💬 Comments</h2>
+				<p class="text-xs mb-4">
+					if securityEnabled {
+						<span class="font-bold text-emerald-700">🛡️ secure mode</span> — comment body is HTML-escaped on render and stripped on storage.
+					} else {
+						<span class="font-bold text-rose-700">⚠️ vulnerable mode</span> — comment body rendered as raw HTML. Stored XSS demo.
+					}
+				</p>
+
+				if message != "" {
+					<div class="mb-4">
+						@ResultMessage(message, isError)
+					</div>
+				}
+
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/ui/posts/view/%d/comments", post.ID)) }
+					hx-post={ fmt.Sprintf("/ui/partials/posts/view/%d/comments", post.ID) }
+					hx-target="#comments-list"
+					hx-swap="outerHTML"
+					hx-on::after-request="if(event.detail.successful) this.querySelector('textarea').value=''"
+					class="space-y-3 mb-6">
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2" for="comment-body">Add a comment</label>
+						<textarea id="comment-body" name="body" rows="3" required
+							class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition"
+							placeholder={ commentPlaceholder(securityEnabled) }></textarea>
+					</div>
+					<button type="submit" class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300">
+						💬 Post Comment
+						<span class="htmx-indicator">...</span>
+					</button>
+				</form>
+
+				if !securityEnabled {
+					<div class="rounded-xl border border-rose-200 bg-rose-50/60 p-3 text-xs mb-4 space-y-1">
+						<p class="font-bold text-rose-800">🧪 Try these payloads:</p>
+						<code class="block bg-white/80 rounded p-1.5 font-mono text-[11px] break-all">&lt;script&gt;alert('XSS')&lt;/script&gt;</code>
+						<code class="block bg-white/80 rounded p-1.5 font-mono text-[11px] break-all">&lt;img src=x onerror="alert(document.cookie)"&gt;</code>
+						<code class="block bg-white/80 rounded p-1.5 font-mono text-[11px] break-all">&lt;svg onload="fetch('/ui/logout')"&gt;</code>
+					</div>
+				}
+
+				@CommentsList(comments, securityEnabled)
+			</section>
+		</div>
+	}
+}
+
 templ EditPostPage(securityEnabled bool, loggedIn bool, username string, post service.Post, message string, isError bool) {
 	@Layout("Edit Post", securityEnabled, loggedIn, username) {
 		<div class="max-w-2xl mx-auto">
@@ -667,6 +772,64 @@ templ EditPostPage(securityEnabled bool, loggedIn bool, username string, post se
 						</a>
 					</div>
 				</form>
+			</div>
+		</div>
+	}
+}
+
+type VulnDemo struct {
+	Emoji       string
+	Title       string
+	CWE         string
+	OWASP       string
+	Status      string // "ready" | "wip" | "todo"
+	Description string
+	Href        string
+	Payload     string
+}
+
+templ vulnStatusPill(status string) {
+	switch status {
+		case "ready":
+			<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">✓ ready</span>
+		case "wip":
+			<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">⏳ wip</span>
+		default:
+			<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">◯ todo</span>
+	}
+}
+
+templ VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos []VulnDemo) {
+	@Layout("Vuln Demos", securityEnabled, loggedIn, username) {
+		<div class="space-y-6">
+			<div>
+				<h1 class="text-3xl font-bold text-slate-900">✏️ Vuln Demos</h1>
+				<p class="text-slate-600 mt-2 text-sm">Each card jumps to a focused atak/obrona scenario. Toggle <code class="font-mono">SECURITY_ENABLED</code> to flip behaviour, then replay the same payload.</p>
+			</div>
+			<div class="grid sm:grid-cols-2 gap-4">
+				for _, d := range demos {
+					<a href={ templ.SafeURL(d.Href) } class="rounded-2xl border border-fuchsia-100 bg-white/95 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_16px_50px_rgba(236,72,153,0.14)] block">
+						<div class="flex items-start justify-between gap-3 mb-2">
+							<div class="flex items-center gap-2">
+								<span class="text-2xl">{ d.Emoji }</span>
+								<h3 class="text-base font-bold text-slate-900">{ d.Title }</h3>
+							</div>
+							@vulnStatusPill(d.Status)
+						</div>
+						<div class="flex flex-wrap gap-1.5 text-[10px] font-mono text-slate-500 mb-2">
+							if d.CWE != "" {
+								<span class="rounded bg-slate-100 px-1.5 py-0.5">{ d.CWE }</span>
+							}
+							if d.OWASP != "" {
+								<span class="rounded bg-slate-100 px-1.5 py-0.5">{ d.OWASP }</span>
+							}
+						</div>
+						<p class="text-sm text-slate-700 leading-relaxed mb-3">{ d.Description }</p>
+						if d.Payload != "" {
+							<code class="block bg-slate-900 text-rose-200 rounded-lg p-2 font-mono text-[11px] break-all">{ d.Payload }</code>
+						}
+					</a>
+				}
 			</div>
 		</div>
 	}

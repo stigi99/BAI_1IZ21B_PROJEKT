@@ -2,9 +2,81 @@ package service
 
 import (
 	"database/sql"
+	"regexp"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+type Comment struct {
+	ID        int    `json:"id"`
+	PostID    int    `json:"post_id"`
+	Author    string `json:"author"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
+}
+
+// stripHTMLTags removes any <...> sequences from input. Used in secure mode as
+// defense-in-depth on top of templ's output escaping.
+var stripHTMLRegex = regexp.MustCompile(`<[^>]*>`)
+
+func sanitizeCommentBody(body string) string {
+	return strings.TrimSpace(stripHTMLRegex.ReplaceAllString(body, ""))
+}
+
+// CreateComment inserts a comment for a post. In secure mode any HTML tags in
+// body are stripped server-side before storage (defense in depth — output
+// escaping in the template is the primary control). In insecure mode the body
+// is stored verbatim, enabling Stored XSS.
+func (s *Service) CreateComment(postID int, author, body string) (int64, error) {
+	stored := body
+	if s.securityEnabled {
+		stored = sanitizeCommentBody(body)
+	}
+	res, err := s.db.Exec(
+		`INSERT INTO comments (post_id, author, body) VALUES (?, ?, ?)`,
+		postID, author, stored,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// CreateCommentVulnerable always stores body verbatim. Used by the
+// force-vulnerable demo endpoint so the side-by-side comparison still works
+// even when the global SECURITY_ENABLED toggle is on.
+func (s *Service) CreateCommentVulnerable(postID int, author, body string) (int64, error) {
+	res, err := s.db.Exec(
+		`INSERT INTO comments (post_id, author, body) VALUES (?, ?, ?)`,
+		postID, author, body,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func (s *Service) GetCommentsForPost(postID int) ([]Comment, error) {
+	rows, err := s.db.Query(
+		`SELECT id, post_id, COALESCE(author, ''), COALESCE(body, ''), COALESCE(created_at, '')
+		 FROM comments WHERE post_id = ? ORDER BY id ASC`,
+		postID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var comments []Comment
+	for rows.Next() {
+		var c Comment
+		if err := rows.Scan(&c.ID, &c.PostID, &c.Author, &c.Body, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		comments = append(comments, c)
+	}
+	return comments, rows.Err()
+}
 
 type Service struct {
 	db              *sql.DB

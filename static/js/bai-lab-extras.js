@@ -520,18 +520,11 @@
         JSON.stringify(c.payloads);
       return blob.toLowerCase().includes(f);
     });
-    let html =
-      '<div class="sticky top-0 z-10 bg-white/95 backdrop-blur pb-3 mb-2 -mx-1 px-1 border-b border-fuchsia-100">' +
-      '<input id="cheat-search" type="search" placeholder="🔎 Filter (sql, xss, csrf...)" class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100" value="' +
-      escapeHtml(cheatFilter) +
-      '"/>' +
-      '<p class="text-[10px] text-slate-500 mt-1.5 leading-tight">Click a payload to copy. ' +
-      matches.length +
-      '/' +
-      CHEATS.length +
-      ' sections.</p></div>';
 
-    html += matches
+    const counter = document.getElementById('cheat-counter');
+    if (counter) counter.textContent = matches.length + '/' + CHEATS.length + ' sekcji';
+
+    let html = matches
       .map(function (c) {
         const payloadsHtml = c.payloads
           .map(function (pair) {
@@ -587,22 +580,20 @@
     if (matches.length === 0) html += '<p class="text-sm text-slate-500 text-center py-8">No results.</p>';
     body.innerHTML = html;
 
-    const search = document.getElementById('cheat-search');
-    if (search) {
-      search.addEventListener('input', function () {
-        cheatFilter = this.value;
-        buildCheatSheet();
-        const again = document.getElementById('cheat-search');
-        if (again) {
-          again.focus();
-          again.setSelectionRange(again.value.length, again.value.length);
-        }
-      });
-    }
     body.querySelectorAll('.copy-btn[data-payload]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         window.copyPayload(this, this.getAttribute('data-payload'));
       });
+    });
+  }
+
+  function wireCheatFilter() {
+    const input = document.getElementById('cheat-filter');
+    if (!input || input.dataset.bound === '1') return;
+    input.dataset.bound = '1';
+    input.addEventListener('input', function () {
+      cheatFilter = this.value;
+      buildCheatSheet();
     });
   }
 
@@ -611,6 +602,7 @@
     renderReqs();
     renderAtks();
     buildCheatSheet();
+    wireCheatFilter();
     logRequest({
       method: 'GET',
       path: window.location.pathname + window.location.search,

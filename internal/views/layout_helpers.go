@@ -7,3 +7,10 @@ func layoutBodyClass(securityEnabled bool) string {
 	}
 	return base + "sec-vuln"
 }
+
+func commentPlaceholder(securityEnabled bool) string {
+	if securityEnabled {
+		return "Comment text — HTML will be escaped"
+	}
+	return "Try <script>alert('XSS')</script>"
+}

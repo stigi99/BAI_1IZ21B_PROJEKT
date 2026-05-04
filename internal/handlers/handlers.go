@@ -786,28 +786,179 @@ func modeLabel(secure bool) string {
 	return "vulnerable (concatenated)"
 }
 
-// CommentsVulnerable stores comments without sanitization (Stored XSS demo).
+// PageVulnDemos renders the Vuln Demos hub — one card per scenario in the
+// curriculum, with quick links and current status.
+func (h *Handler) PageVulnDemos() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
+		demos := []views.VulnDemo{
+			{
+				Emoji:       "💉",
+				Title:       "SQL Injection",
+				CWE:         "CWE-89",
+				OWASP:       "A03:2021",
+				Status:      "ready",
+				Description: "Vulnerable mode concatenates the search term into a SELECT — try ' OR 1=1 -- to leak drafts.",
+				Href:        "/ui/search",
+				Payload:     `' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --`,
+			},
+			{
+				Emoji:       "🪲",
+				Title:       "Stored XSS",
+				CWE:         "CWE-79",
+				OWASP:       "A03:2021",
+				Status:      "ready",
+				Description: "Comments rendered as raw HTML in vulnerable mode. Open the Stored XSS demo post and submit a payload.",
+				Href:        "/ui/posts/view/3",
+				Payload:     `<script>alert('XSS-' + document.cookie)</script>`,
+			},
+			{
+				Emoji:       "🔐",
+				Title:       "Broken Authentication",
+				CWE:         "CWE-287",
+				OWASP:       "A07:2021",
+				Status:      "ready",
+				Description: "Vulnerable mode accepts any password for an existing user. Secure mode validates with bcrypt.",
+				Href:        "/ui/login",
+				Payload:     `username=admin&password=anything`,
+			},
+			{
+				Emoji:       "🔓",
+				Title:       "Broken Access Control",
+				CWE:         "CWE-639",
+				OWASP:       "A01:2021",
+				Status:      "ready",
+				Description: "In vulnerable mode any logged-in user can delete any post. Secure mode enforces author/admin only.",
+				Href:        "/ui/posts",
+				Payload:     `POST /ui/posts/delete/{otherUsersPostId}`,
+			},
+			{
+				Emoji:       "🗝️",
+				Title:       "Sensitive Data Exposure",
+				CWE:         "CWE-200",
+				OWASP:       "A02:2021",
+				Status:      "ready",
+				Description: "Vulnerable mode stores plaintext passwords in SQLite. Secure mode persists bcrypt hashes only.",
+				Href:        "/ui/register",
+				Payload:     `sqlite> SELECT username, password_hash FROM users;`,
+			},
+			{
+				Emoji:       "🪪",
+				Title:       "CSRF",
+				CWE:         "CWE-352",
+				OWASP:       "A01:2021",
+				Status:      "todo",
+				Description: "Form POST without anti-CSRF token. Endpoint exists at /csrf-vulnerable-form for the demo.",
+				Href:        "/csrf-vulnerable-form",
+				Payload:     `<form action="/csrf-vulnerable-form" method="POST"><input name=action value=transfer_funds>...`,
+			},
+		}
+		component := views.VulnDemosPage(h.securityEnabled, loggedIn, username, demos)
+		renderHTML(c, http.StatusOK, "vuln_demos", component)
+	}
+}
+
+// PagePostDetail renders a single post with its comments (Stored XSS demo).
+// In secure mode comment bodies are HTML-escaped on render; in insecure mode
+// they are rendered as raw HTML.
+func (h *Handler) PagePostDetail() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid post id")
+			return
+		}
+		post, err := h.svc.GetPostByID(id)
+		if err == sql.ErrNoRows {
+			c.String(http.StatusNotFound, "Post not found")
+			return
+		}
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to load post")
+			return
+		}
+		comments, err := h.svc.GetCommentsForPost(id)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to load comments")
+			return
+		}
+		username, loggedIn := h.currentUsername(c)
+		message := c.Query("msg")
+		isError := c.Query("err") == "1"
+		component := views.PostDetailPage(h.securityEnabled, loggedIn, username, post, comments, message, isError)
+		renderHTML(c, http.StatusOK, "post_detail", component)
+	}
+}
+
+// PagePostCommentSubmit accepts a form POST and renders the refreshed comments
+// list. Uses CreateComment which honors SECURITY_ENABLED (sanitize on store).
+func (h *Handler) PagePostCommentSubmit() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid post id")
+			return
+		}
+		body := c.PostForm("body")
+		if body == "" {
+			c.String(http.StatusBadRequest, "body required")
+			return
+		}
+		author := ""
+		if username, ok := h.currentUsername(c); ok {
+			author = username
+		}
+		if _, err := h.svc.CreateComment(id, author, body); err != nil {
+			c.String(http.StatusInternalServerError, "Failed to save comment")
+			return
+		}
+		comments, err := h.svc.GetCommentsForPost(id)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to load comments")
+			return
+		}
+		component := views.CommentsList(comments, h.securityEnabled)
+		renderHTML(c, http.StatusOK, "comments_list", component)
+	}
+}
+
+// CommentsVulnerable always stores comment bodies verbatim and returns the
+// comments list as raw HTML so the XSS payload fires regardless of the
+// SECURITY_ENABLED toggle. Used for the side-by-side defense demo.
+//
+// Body: form-encoded `post_id` + `body` (or JSON with the same fields).
 func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req struct {
-			PostID  int    `json:"post_id"`
-			Comment string `json:"comment"`
+		postID, _ := strconv.Atoi(c.PostForm("post_id"))
+		body := c.PostForm("body")
+		author := c.PostForm("author")
+
+		if postID == 0 || body == "" {
+			var req struct {
+				PostID int    `json:"post_id"`
+				Body   string `json:"body"`
+				Author string `json:"author"`
+			}
+			if err := c.ShouldBindJSON(&req); err == nil {
+				postID = req.PostID
+				body = req.Body
+				author = req.Author
+			}
 		}
 
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		if postID == 0 || body == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "post_id and body required"})
 			return
 		}
 
-		if req.Comment == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "comment cannot be empty"})
+		if _, err := h.svc.CreateCommentVulnerable(postID, author, body); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store comment"})
 			return
 		}
-
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "Comment stored",
-			"post_id": req.PostID,
-			"comment": req.Comment,
+			"message": "Comment stored verbatim (force-vulnerable)",
+			"post_id": postID,
+			"body":    body,
 		})
 	}
 }
