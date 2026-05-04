@@ -54,6 +54,10 @@ templ Layout(title string, securityEnabled bool, loggedIn bool, username string)
 								<span>📂</span>
 								<span>LFI</span>
 							</a>
+							<a href="/ui/cmd-injection" class="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-fuchsia-50 hover:text-fuchsia-700" title="Command Injection demo">
+								<span>💻</span>
+								<span>Cmd</span>
+							</a>
 							if loggedIn {
 								<span class="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-gradient-to-r from-emerald-100 to-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm shadow-emerald-200">
 									<span>✅</span>
@@ -1131,4 +1135,96 @@ curl "http://localhost:8080/api/files-secure?name=../app.db"
 			</div>
 		</div>
 	}
+}
+
+
+// ============================================================================
+// Command Injection Demo Page
+// ============================================================================
+
+templ CmdInjectionPage(securityEnabled bool, loggedIn bool, username string, host string, output string, message string, isError bool) {
+@Layout("Command Injection Demo", securityEnabled, loggedIn, username) {
+<div class="max-w-4xl mx-auto space-y-8">
+<div>
+<h1 class="text-3xl font-bold text-slate-900">💻 Command Injection Demo</h1>
+<p class="text-slate-600 mt-2 text-sm">
+The ping endpoint takes a host value from user input. In insecure mode it concatenates
+the value directly into <code class="font-mono">sh -c "ping -c1 &lt;host&gt;"</code>
+— shell metacharacters like <code class="font-mono">;</code> split the command and
+inject additional instructions that execute with the server&#39;s privileges.
+</p>
+</div>
+
+<div class="grid md:grid-cols-2 gap-5 text-xs">
+<div class="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 space-y-2">
+<p class="font-bold text-rose-800">⚠️ Vulnerable: <code class="font-mono">/api/ping-vulnerable?host=</code></p>
+<ul class="list-disc list-inside text-rose-900 space-y-1">
+<li>Executes: <code class="font-mono">sh -c "ping -c1 " + host</code> (no validation)</li>
+<li>Payload: <code class="font-mono">8.8.8.8 ; cat /etc/passwd</code></li>
+<li>Payload: <code class="font-mono">127.0.0.1 &amp;&amp; whoami</code></li>
+<li>Payload: <code class="font-mono">x | id</code></li>
+</ul>
+</div>
+<div class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2">
+<p class="font-bold text-emerald-800">🛡️ Secure: <code class="font-mono">/api/ping-secure?host=</code></p>
+<ul class="list-disc list-inside text-emerald-900 space-y-1">
+<li>Validates host against <code class="font-mono">^[a-zA-Z0-9.\-]+$</code></li>
+<li>Uses <code class="font-mono">exec.Command("ping","-c1",host)</code> — no shell</li>
+<li>Any metacharacters → 400 immediately</li>
+</ul>
+</div>
+</div>
+
+<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-sm space-y-4">
+<h2 class="text-lg font-bold text-slate-900">Try it</h2>
+<form method="get" action="/ui/cmd-injection" class="flex items-end gap-3">
+<div class="flex-1">
+<label class="block text-sm font-semibold text-slate-700 mb-1" for="cmd-host">Host / IP</label>
+<input
+id="cmd-host"
+name="host"
+value={ host }
+placeholder="8.8.8.8 ; cat /etc/passwd"
+required
+class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition"/>
+</div>
+<button type="submit" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-md shadow-pink-200 transition hover:-translate-y-0.5">
+📡 Ping
+</button>
+</form>
+<div class="flex gap-2 flex-wrap">
+<a href="/ui/cmd-injection?host=8.8.8.8" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 hover:bg-emerald-100 transition">8.8.8.8</a>
+<a href="/ui/cmd-injection?host=8.8.8.8+%3B+cat+%2Fetc%2Fpasswd" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition">8.8.8.8 ; cat /etc/passwd</a>
+<a href="/ui/cmd-injection?host=127.0.0.1+%26%26+whoami" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition">127.0.0.1 &amp;&amp; whoami</a>
+<a href="/ui/cmd-injection?host=x+%7C+id" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition">x | id</a>
+</div>
+if message != "" {
+@ResultMessage(message, isError)
+}
+if output != "" {
+<div>
+<p class="text-xs font-semibold text-slate-700 mb-1">
+Output for host: <code class="font-mono">{ host }</code>
+if !securityEnabled {
+<span class="ml-2 text-rose-600">(⚠️ vulnerable — run via sh -c)</span>
+} else {
+<span class="ml-2 text-emerald-600">(🛡️ secure — no shell)</span>
+}
+</p>
+<pre class="bg-slate-900 text-slate-100 rounded-xl p-4 text-[11px] font-mono overflow-x-auto max-h-64 overflow-y-auto leading-relaxed whitespace-pre-wrap">{ output }</pre>
+</div>
+}
+</div>
+
+<div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2">
+<p class="font-bold text-slate-700">Code diff (handlers.go):</p>
+<pre class="bg-white rounded-xl p-3 overflow-x-auto font-mono text-[11px] leading-relaxed">{ cmdInjectionCodeDiff() }</pre>
+</div>
+
+<div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2">
+<p class="font-bold text-slate-700">JSON API endpoints for curl / Burp:</p>
+<pre class="bg-white rounded-xl p-3 font-mono text-[11px] leading-relaxed overflow-x-auto">{ cmdInjectionCurlExamples() }</pre>
+</div>
+</div>
+}
 }

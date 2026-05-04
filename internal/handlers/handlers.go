@@ -10,7 +10,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -1240,4 +1242,93 @@ func (h *Handler) PagePathTraversal() gin.HandlerFunc {
 		component := views.PathTraversalPage(h.securityEnabled, loggedIn, username, filename, content, message, isError)
 		renderHTML(c, http.StatusOK, "path_traversal", component)
 	}
+}
+
+// validHostRE matches only safe hostname/IP characters; metacharacters are excluded.
+var validHostRE = regexp.MustCompile(`^[a-zA-Z0-9.\-]+$`)
+
+// PingVulnerable runs ping by concatenating user input into sh -c.
+// This is intentionally vulnerable to command injection for the lab demo.
+//
+// Example exploit: /api/ping-vulnerable?host=8.8.8.8+;+cat+/etc/passwd
+func (h *Handler) PingVulnerable() gin.HandlerFunc {
+return func(c *gin.Context) {
+host := c.Query("host")
+if host == "" {
+c.JSON(http.StatusBadRequest, gin.H{"error": "host parameter required"})
+return
+}
+
+// VULNERABLE: no input validation — shell metacharacters execute.
+cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
+out, _ := cmd.CombinedOutput()
+
+c.Header("Content-Type", "text/plain; charset=utf-8")
+c.String(http.StatusOK, string(out))
+}
+}
+
+// PingSecure runs ping after validating that the host contains only safe characters.
+// The command is invoked directly without a shell so metacharacters have no effect.
+//
+// Example (blocked): /api/ping-secure?host=8.8.8.8+;+cat+/etc/passwd → 400
+func (h *Handler) PingSecure() gin.HandlerFunc {
+return func(c *gin.Context) {
+host := c.Query("host")
+if host == "" {
+c.JSON(http.StatusBadRequest, gin.H{"error": "host parameter required"})
+return
+}
+
+// Secure: reject input that contains shell metacharacters.
+if !validHostRE.MatchString(host) {
+c.JSON(http.StatusBadRequest, gin.H{
+"error":  "invalid host: only [a-zA-Z0-9.-] allowed",
+"detail": "shell metacharacters (;, &, |, $, `, etc.) are rejected",
+})
+return
+}
+
+out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
+c.Header("Content-Type", "text/plain; charset=utf-8")
+c.String(http.StatusOK, string(out))
+}
+}
+
+// PageCmdInjection renders the Command Injection demo page.
+// When a host query parameter is present it runs the ping and shows the output.
+func (h *Handler) PageCmdInjection() gin.HandlerFunc {
+return func(c *gin.Context) {
+username, loggedIn := h.currentUsername(c)
+host := c.Query("host")
+var output, message string
+isError := false
+
+if host != "" {
+if !h.securityEnabled {
+// VULNERABLE mode: run via shell — command injection possible.
+cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
+out, _ := cmd.CombinedOutput()
+output = string(out)
+if len(output) > 4096 {
+output = output[:4096] + "\n... (truncated)"
+}
+} else {
+// Secure mode: validate first, then invoke without a shell.
+if !validHostRE.MatchString(host) {
+message = "⛔ Command injection blocked: host contains disallowed characters — only [a-zA-Z0-9.-] are permitted"
+isError = true
+} else {
+out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
+output = string(out)
+if len(output) > 4096 {
+output = output[:4096] + "\n... (truncated)"
+}
+}
+}
+}
+
+component := views.CmdInjectionPage(h.securityEnabled, loggedIn, username, host, output, message, isError)
+renderHTML(c, http.StatusOK, "cmd_injection", component)
+}
 }

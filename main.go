@@ -84,6 +84,9 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.GET("/ui/path-traversal", h.PagePathTraversal())
 	router.GET("/api/files-vulnerable", h.FilesVulnerable())
 	router.GET("/api/files-secure", h.FilesSecure())
+	router.GET("/ui/cmd-injection", h.PageCmdInjection())
+	router.GET("/api/ping-vulnerable", h.PingVulnerable())
+	router.GET("/api/ping-secure", h.PingSecure())
 
 	return router
 }
