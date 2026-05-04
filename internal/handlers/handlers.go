@@ -1,11 +1,18 @@
 package handlers
 
 import (
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -19,9 +26,13 @@ import (
 
 const (
 	authCookieName  = "bai_auth_user"
+	csrfCookieName  = "bai_csrf_token"
 	uploadsDir      = "./uploads"
 	uploadsURLPath  = "/uploads"
 	maxUploadBytes  = 5 << 20 // 5 MiB
+	// sessionSecret is used to HMAC-sign the auth cookie in secure mode.
+	// In a production system this must come from a securely stored secret.
+	sessionSecret = "bai-lab-demo-secret-do-not-use-in-prod"
 )
 
 type Handler struct {
@@ -43,14 +54,60 @@ func renderHTML(c *gin.Context, status int, pageName string, component templ.Com
 	}
 }
 
+// signCookieValue creates a signed cookie value: "username|hmac(username)".
+// Used in secure mode so the cookie value cannot be trivially forged.
+func signCookieValue(username string) string {
+	mac := hmac.New(sha256.New, []byte(sessionSecret))
+	mac.Write([]byte(username))
+	sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	return username + "|" + sig
+}
+
+// verifyCookieValue checks the HMAC signature and returns the username.
+func verifyCookieValue(value string) (string, bool) {
+	idx := strings.LastIndex(value, "|")
+	if idx < 0 {
+		return "", false
+	}
+	username := value[:idx]
+	expected := signCookieValue(username)
+	if !hmac.Equal([]byte(value), []byte(expected)) {
+		return "", false
+	}
+	return username, true
+}
+
 func (h *Handler) setAuthCookie(c *gin.Context, username string) {
-	c.SetCookie(authCookieName, username, 60*60*8, "/", "", false, true)
+	cookieVal := username
+	if h.securityEnabled {
+		// Secure mode: HMAC-signed cookie + SameSite=Strict.
+		cookieVal = signCookieValue(username)
+	}
+	// HttpOnly=true in both modes; Secure=false since the lab runs on plain HTTP.
+	c.SetCookie(authCookieName, cookieVal, 60*60*8, "/", "", false, true)
+	if h.securityEnabled {
+		// Append SameSite=Strict for the secure mode cookie.
+		existing := c.Writer.Header().Get("Set-Cookie")
+		c.Writer.Header().Set("Set-Cookie", existing+"; SameSite=Strict")
+	}
 }
 
 func (h *Handler) currentUsername(c *gin.Context) (string, bool) {
-	username, err := c.Cookie(authCookieName)
-	if err != nil || username == "" {
+	raw, err := c.Cookie(authCookieName)
+	if err != nil || raw == "" {
 		return "", false
+	}
+
+	var username string
+	if h.securityEnabled {
+		var ok bool
+		username, ok = verifyCookieValue(raw)
+		if !ok {
+			return "", false
+		}
+	} else {
+		// VULNERABLE: plaintext cookie value — easily forged by editing the cookie.
+		username = raw
 	}
 
 	exists, err := h.svc.UserExists(username)
@@ -589,12 +646,18 @@ func (h *Handler) evaluateLogin(username, password string) (message string, isEr
 		return "Username and password are required", true, http.StatusBadRequest
 	}
 
+	// Secure mode: enforce rate limiting to block brute-force attacks.
+	if h.securityEnabled && !h.svc.CheckRateLimit(username) {
+		return "Too many failed attempts. Please wait 60 seconds.", true, http.StatusTooManyRequests
+	}
+
 	if h.securityEnabled {
 		valid, err := h.svc.ValidateUserCredentials(username, password)
 		if err != nil {
 			return "Database error", true, http.StatusInternalServerError
 		}
 		if !valid {
+			h.svc.RecordLoginFailure(username)
 			return "Invalid username or password", true, http.StatusUnauthorized
 		}
 		return fmt.Sprintf("Login successful for %s", username), false, http.StatusOK
@@ -787,6 +850,7 @@ func modeLabel(secure bool) string {
 }
 
 // CommentsVulnerable stores comments without sanitization (Stored XSS demo).
+// The raw HTML body is persisted directly so <script> tags execute on render.
 func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -804,8 +868,21 @@ func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 			return
 		}
 
+		author := "anonymous"
+		if u, ok := h.currentUsername(c); ok {
+			author = u
+		}
+
+		// VULNERABLE: body stored verbatim — Stored XSS.
+		id, err := h.svc.CreateComment(req.PostID, author, req.Comment)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store comment"})
+			return
+		}
+
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "Comment stored",
+			"message": "Comment stored (vulnerable — raw HTML saved)",
+			"id":      id,
 			"post_id": req.PostID,
 			"comment": req.Comment,
 		})
@@ -813,36 +890,445 @@ func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 }
 
 // CsrfFormVulnerable returns and accepts a form without CSRF protection.
+// The POST handler actually updates the logged-in user's email address,
+// making the state-change exploitable via a cross-origin request.
 func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
 		if c.Request.Method == http.MethodGet {
-			html := `<!DOCTYPE html>
-	<html>
-	<head><title>Vulnerable Form (CSRF)</title></head>
-	<body>
-	<h1>VULNERABLE: This form has no CSRF protection</h1>
-	<form method="POST" action="/csrf-vulnerable-form">
-	  <input type="hidden" name="action" value="transfer_funds">
-	  <input type="text" name="amount" placeholder="Amount" required>
-	  <input type="text" name="to_account" placeholder="To Account" required>
-	  <button type="submit">Transfer Funds</button>
-	</form>
-	</body>
-	</html>`
-			c.Header("Content-Type", "text/html; charset=utf-8")
-			c.String(http.StatusOK, html)
+			email := ""
+			if loggedIn {
+				email, _ = h.svc.GetUserEmail(username)
+			}
+			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, "", email, "", false)
+			renderHTML(c, http.StatusOK, "csrf_demo", component)
 			return
 		}
 
-		action := c.PostForm("action")
-		amount := c.PostForm("amount")
-		toAccount := c.PostForm("to_account")
+		// POST — vulnerable: no CSRF token check.
+		newEmail := c.PostForm("new_email")
+		if !loggedIn {
+			c.Redirect(http.StatusSeeOther, "/ui/login?err=1&msg=Please+log+in+to+update+email")
+			return
+		}
+		if newEmail == "" {
+			email, _ := h.svc.GetUserEmail(username)
+			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, "", email, "Email cannot be empty", true)
+			renderHTML(c, http.StatusBadRequest, "csrf_demo", component)
+			return
+		}
+		if err := h.svc.UpdateUserEmail(username, newEmail); err != nil {
+			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, "", newEmail, "Failed to update email", true)
+			renderHTML(c, http.StatusInternalServerError, "csrf_demo", component)
+			return
+		}
+		component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, "", newEmail,
+			fmt.Sprintf("Email updated to %s (no CSRF token was checked!)", newEmail), false)
+		renderHTML(c, http.StatusOK, "csrf_demo", component)
+	}
+}
 
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Action completed (no CSRF protection)",
-			"action":  action,
-			"amount":  amount,
-			"to":      toAccount,
+// ============================================================================
+// NEW HANDLERS — XSS, CSRF secure, IDOR, DB Expose, Path Traversal
+// ============================================================================
+
+// CommentsSecure stores a comment after HTML-escaping the body.
+// Used by the secure JSON API endpoint for the XSS demo.
+func (h *Handler) CommentsSecure() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			PostID  int    `json:"post_id"`
+			Comment string `json:"comment"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+		if req.Comment == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "comment cannot be empty"})
+			return
+		}
+
+		author := "anonymous"
+		if u, ok := h.currentUsername(c); ok {
+			author = u
+		}
+
+		// Secure: CreateComment HTML-escapes the body before storage.
+		id, err := h.svc.CreateComment(req.PostID, author, req.Comment)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store comment"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Comment stored (secure — body HTML-escaped)",
+			"id":      id,
+			"post_id": req.PostID,
 		})
 	}
+}
+
+// PagePostDetail renders a single post with its comment thread.
+// Comments are rendered with templ.Raw in insecure mode (Stored XSS) and as
+// plain text in secure mode.
+func (h *Handler) PagePostDetail() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid post id")
+			return
+		}
+
+		post, err := h.svc.GetPostByID(id)
+		if err == sql.ErrNoRows {
+			c.String(http.StatusNotFound, "Post not found")
+			return
+		}
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to load post")
+			return
+		}
+
+		comments, err := h.svc.GetCommentsByPostID(id)
+		if err != nil {
+			comments = []service.Comment{}
+		}
+
+		message := c.Query("msg")
+		isError := c.Query("err") == "1"
+		username, loggedIn := h.currentUsername(c)
+		component := views.PostDetailPage(post, comments, h.securityEnabled, loggedIn, username, message, isError)
+		renderHTML(c, http.StatusOK, "post_detail", component)
+	}
+}
+
+// PagePostCommentSubmit processes a form-based comment submission from the
+// post detail page.
+func (h *Handler) PagePostCommentSubmit() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid post id")
+			return
+		}
+
+		body := c.PostForm("body")
+		if body == "" {
+			c.Redirect(http.StatusSeeOther, fmt.Sprintf("/ui/posts/%d?err=1&msg=Comment+cannot+be+empty", id))
+			return
+		}
+
+		author := "anonymous"
+		if u, ok := h.currentUsername(c); ok {
+			author = u
+		}
+
+		if _, err := h.svc.CreateComment(id, author, body); err != nil {
+			c.Redirect(http.StatusSeeOther, fmt.Sprintf("/ui/posts/%d?err=1&msg=Failed+to+save+comment", id))
+			return
+		}
+
+		c.Redirect(http.StatusSeeOther, fmt.Sprintf("/ui/posts/%d?msg=Comment+added", id))
+	}
+}
+
+// generateCSRFToken creates a cryptographically random base64url token.
+func generateCSRFToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback: use timestamp — not cryptographically safe, but ensures
+		// the handler does not crash in the unlikely event rand.Read fails.
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// CsrfSecureForm handles the CSRF-protected email-update form.
+// GET: issues a new CSRF token (stored in a cookie and embedded in the form).
+// POST: validates the token before performing the email update.
+func (h *Handler) CsrfSecureForm() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
+
+		if c.Request.Method == http.MethodGet {
+			token := generateCSRFToken()
+			c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
+			email := ""
+			if loggedIn {
+				email, _ = h.svc.GetUserEmail(username)
+			}
+			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, token, email, "", false)
+			renderHTML(c, http.StatusOK, "csrf_secure", component)
+			return
+		}
+
+		// POST — secure: validate CSRF token.
+		formToken := c.PostForm("csrf_token")
+		cookieToken, cookieErr := c.Cookie(csrfCookieName)
+		if cookieErr != nil || formToken == "" || formToken != cookieToken {
+			c.JSON(http.StatusForbidden, gin.H{"error": "CSRF token validation failed"})
+			return
+		}
+
+		if !loggedIn {
+			c.Redirect(http.StatusSeeOther, "/ui/login?err=1&msg=Please+log+in")
+			return
+		}
+
+		newEmail := c.PostForm("new_email")
+		if newEmail == "" {
+			email, _ := h.svc.GetUserEmail(username)
+			token := generateCSRFToken()
+			c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
+			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, token, email, "Email cannot be empty", true)
+			renderHTML(c, http.StatusBadRequest, "csrf_secure", component)
+			return
+		}
+
+		if err := h.svc.UpdateUserEmail(username, newEmail); err != nil {
+			token := generateCSRFToken()
+			c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
+			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, token, newEmail, "Failed to update email", true)
+			renderHTML(c, http.StatusInternalServerError, "csrf_secure", component)
+			return
+		}
+
+		token := generateCSRFToken()
+		c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
+		component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, token, newEmail,
+			fmt.Sprintf("Email updated to %s (CSRF token was valid ✓)", newEmail), false)
+		renderHTML(c, http.StatusOK, "csrf_secure", component)
+	}
+}
+
+// PageIDOR renders the Broken Access Control / IDOR demo page.
+func (h *Handler) PageIDOR() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		posts, _ := h.svc.GetAllPosts()
+		username, loggedIn := h.currentUsername(c)
+		message := c.Query("msg")
+		isError := c.Query("err") == "1"
+		component := views.IDORDemoPage(posts, h.securityEnabled, loggedIn, username, message, isError)
+		renderHTML(c, http.StatusOK, "idor_demo", component)
+	}
+}
+
+// PageDBExpose renders the Sensitive Data Exposure demo page.
+// In insecure mode it lists all users with their plaintext passwords.
+// In secure mode it returns a 403 page showing only hashed passwords.
+func (h *Handler) PageDBExpose() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
+		users, err := h.svc.GetAllUsers()
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to load users")
+			return
+		}
+		component := views.DBExposePage(users, h.securityEnabled, loggedIn, username)
+		renderHTML(c, http.StatusOK, "db_expose", component)
+	}
+}
+
+// FilesVulnerable reads a file from the uploads directory by directly
+// concatenating the user-supplied filename — exploitable with path traversal.
+//
+// Example: /api/files-vulnerable?name=../app.db
+func (h *Handler) FilesVulnerable() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Query("name")
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name parameter required"})
+			return
+		}
+
+		// VULNERABLE: no path validation — attacker can read any file the
+		// server process has access to via relative sequences like "../../etc/passwd".
+		path := uploadsDir + "/" + name
+		data, err := os.ReadFile(path)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "file not found", "path": path})
+			return
+		}
+
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.String(http.StatusOK, string(data))
+	}
+}
+
+// FilesSecure reads a file from the uploads directory after validating that the
+// resolved path stays within the uploads directory.
+//
+// Example (blocked): /api/files-secure?name=../app.db → 400
+func (h *Handler) FilesSecure() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Query("name")
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name parameter required"})
+			return
+		}
+
+		// Secure: canonicalize and verify the path stays within uploadsDir.
+		base, _ := filepath.Abs(uploadsDir)
+		candidate := filepath.Join(base, filepath.Clean("/"+name))
+		if !strings.HasPrefix(candidate, base+string(filepath.Separator)) && candidate != base {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":  "path traversal detected — access denied",
+				"detail": "resolved path escapes the uploads directory",
+			})
+			return
+		}
+
+		data, err := os.ReadFile(candidate)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+			return
+		}
+
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.String(http.StatusOK, string(data))
+	}
+}
+
+// PagePathTraversal renders the Path Traversal / LFI demo page.
+func (h *Handler) PagePathTraversal() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
+		filename := c.Query("name")
+		var content, message string
+		isError := false
+
+		if filename != "" {
+			endpoint := "/api/files-vulnerable"
+			if h.securityEnabled {
+				endpoint = "/api/files-secure"
+			}
+			_ = endpoint // displayed in view; actual read below
+
+			// Read via the appropriate path validation strategy.
+			if !h.securityEnabled {
+				path := uploadsDir + "/" + filename
+				data, err := os.ReadFile(path)
+				if err != nil {
+					message = fmt.Sprintf("Error: %v", err)
+					isError = true
+				} else {
+					content = string(data)
+					if len(content) > 4096 {
+						content = content[:4096] + "\n... (truncated)"
+					}
+				}
+			} else {
+				base, _ := filepath.Abs(uploadsDir)
+				candidate := filepath.Join(base, filepath.Clean("/"+filename))
+				if !strings.HasPrefix(candidate, base+string(filepath.Separator)) && candidate != base {
+					message = "⛔ Path traversal blocked: resolved path escapes the uploads directory"
+					isError = true
+				} else {
+					data, err := os.ReadFile(candidate)
+					if err != nil {
+						message = fmt.Sprintf("Error: %v", err)
+						isError = true
+					} else {
+						content = string(data)
+						if len(content) > 4096 {
+							content = content[:4096] + "\n... (truncated)"
+						}
+					}
+				}
+			}
+		}
+
+		component := views.PathTraversalPage(h.securityEnabled, loggedIn, username, filename, content, message, isError)
+		renderHTML(c, http.StatusOK, "path_traversal", component)
+	}
+}
+
+// validHostRE matches only safe hostname/IP characters; metacharacters are excluded.
+var validHostRE = regexp.MustCompile(`^[a-zA-Z0-9.\-]+$`)
+
+// PingVulnerable runs ping by concatenating user input into sh -c.
+// This is intentionally vulnerable to command injection for the lab demo.
+//
+// Example exploit: /api/ping-vulnerable?host=8.8.8.8+;+cat+/etc/passwd
+func (h *Handler) PingVulnerable() gin.HandlerFunc {
+return func(c *gin.Context) {
+host := c.Query("host")
+if host == "" {
+c.JSON(http.StatusBadRequest, gin.H{"error": "host parameter required"})
+return
+}
+
+// VULNERABLE: no input validation — shell metacharacters execute.
+cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
+out, _ := cmd.CombinedOutput()
+
+c.Header("Content-Type", "text/plain; charset=utf-8")
+c.String(http.StatusOK, string(out))
+}
+}
+
+// PingSecure runs ping after validating that the host contains only safe characters.
+// The command is invoked directly without a shell so metacharacters have no effect.
+//
+// Example (blocked): /api/ping-secure?host=8.8.8.8+;+cat+/etc/passwd → 400
+func (h *Handler) PingSecure() gin.HandlerFunc {
+return func(c *gin.Context) {
+host := c.Query("host")
+if host == "" {
+c.JSON(http.StatusBadRequest, gin.H{"error": "host parameter required"})
+return
+}
+
+// Secure: reject input that contains shell metacharacters.
+if !validHostRE.MatchString(host) {
+c.JSON(http.StatusBadRequest, gin.H{
+"error":  "invalid host: only [a-zA-Z0-9.-] allowed",
+"detail": "shell metacharacters (;, &, |, $, `, etc.) are rejected",
+})
+return
+}
+
+out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
+c.Header("Content-Type", "text/plain; charset=utf-8")
+c.String(http.StatusOK, string(out))
+}
+}
+
+// PageCmdInjection renders the Command Injection demo page.
+// When a host query parameter is present it runs the ping and shows the output.
+func (h *Handler) PageCmdInjection() gin.HandlerFunc {
+return func(c *gin.Context) {
+username, loggedIn := h.currentUsername(c)
+host := c.Query("host")
+var output, message string
+isError := false
+
+if host != "" {
+if !h.securityEnabled {
+// VULNERABLE mode: run via shell — command injection possible.
+cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
+out, _ := cmd.CombinedOutput()
+output = string(out)
+if len(output) > 4096 {
+output = output[:4096] + "\n... (truncated)"
+}
+} else {
+// Secure mode: validate first, then invoke without a shell.
+if !validHostRE.MatchString(host) {
+message = "⛔ Command injection blocked: host contains disallowed characters — only [a-zA-Z0-9.-] are permitted"
+isError = true
+} else {
+out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
+output = string(out)
+if len(output) > 4096 {
+output = output[:4096] + "\n... (truncated)"
+}
+}
+}
+}
+
+component := views.CmdInjectionPage(h.securityEnabled, loggedIn, username, host, output, message, isError)
+renderHTML(c, http.StatusOK, "cmd_injection", component)
+}
 }
