@@ -1,21 +1,48 @@
 # Plan Dzialania: Go + Templ + HTMX + Tailwind + SQLite
 
+> Aktualizacja: 2026-05-08. Etapy A-D zakonczone, Etap E w trakcie (5 z 7 podatnosci wymaganych dla wariantu n=3 zaimplementowane), Etap F (finalizacja) — czeka na CSRF + Security Misconfiguration + sekcje raportu.
+
 ## 1) Gdzie jestesmy teraz (stan aktualny)
 
-- [x] Dzialajacy backend w Go (Gin) w pliku `main.go`
-- [x] Security toggle: `SecurityEnabled` (vulnerable/secure)
-- [x] Endpointy: `GET /ping`, `GET /posts`, `POST /login`
-- [x] Testy integracyjne: `main_integration_test.go`
-- [x] Baza lokalna SQLite (`app.db`)
-- [x] Warstwa widokow Templ (wydzielona do plikow `.templ`)
-- [x] Trasy UI: `GET /ui/posts`, `GET /ui/login`, `POST /ui/login`
-- [x] Testy integracyjne dla tras UI
-- [x] HTMX (partiale dla posts/login)
-- [x] Tailwind pipeline i stylowanie widokow
-- [x] SQLite jako docelowa baza dla tego projektu
-- [x] Zakres projektu zamkniety na obecnym stacku
+### Backend i routing
+- [x] Backend w Go (Gin) — `main.go` + `internal/{config,db,handlers,service,views}`
+- [x] Security toggle: `SecurityEnabled` (vulnerable/secure) sterowany env `SECURITY_ENABLED`
+- [x] Endpointy JSON: `GET /ping`, `GET /posts`, `POST /posts`, `PUT/DELETE /posts/:id`, `POST /login`, `POST /register`, `POST /logout`
+- [x] Endpointy SQLi demo: `GET /api/search` (toggle), `GET /api/search-vulnerable` (force-vuln)
+- [x] Endpointy Stored XSS demo: `GET /ui/posts/view/:id`, `POST /ui/posts/view/:id/comments`, `POST /api/comments-vulnerable` (force-vuln)
+- [x] Endpoint CSRF demo: `GET/POST /csrf-vulnerable-form` (vuln only — secure brak)
+- [x] Cookie sesji `bai_auth_user` (HTTP-only, TTL 8h)
+- [x] Hardcoded admin seedowany z env (`ADMIN_USERNAME`/`ADMIN_PASSWORD`/`ADMIN_EMAIL`)
 
-Wniosek: mamy dobry MVP backend i testy. Rozwijamy warstwe aplikacji (struktura + UI + scenariusze bezpieczenstwa) i finalizujemy projekt na SQLite.
+### Warstwa widokow
+- [x] Templ — `internal/views/pages.templ` z layoutem, header, footer, navem
+- [x] Strony UI: `/ui/posts`, `/ui/login`, `/ui/register`, `/ui/search`, `/ui/vuln-demos`, `/ui/posts/view/:id`, `/ui/posts/edit/:id`
+- [x] HTMX partials: `/ui/partials/posts`, `/ui/partials/posts/create`, `/ui/partials/login`, `/ui/partials/register`, `/ui/partials/search`, `/ui/partials/posts/view/:id/comments`
+- [x] HX-Redirect dla loginu/rejestracji (full reload zeby pokazac zielony badge w navbarze)
+- [x] HX-Trigger `post-created` po utworzeniu posta dla efektow JS
+
+### Stylowanie i UI extras
+- [x] Tailwind pipeline — `assets/css/input.css` -> `static/css/app.css` (`npm run build:css`)
+- [x] Tailwind config skanuje `internal/views/**/*.{templ,go}` + `internal/handlers/**/*.go` + safelist body utility classes (poprawka 2026-05-08)
+- [x] Design handoff z claude.ai/design: sakura petals, Burp-style Request Inspector, Attack Timeline z eksportem PoC do md, cheat-sheet drawer z 14 sekcjami i filtrem
+- [x] Mascot reagujacy na tryb (`sec-vuln`/`sec-secure` body classes)
+- [x] Strony Login/Register z dwukolumnowym hero + formularzem (od 2026-05-08)
+- [x] Hub `/ui/vuln-demos` z 6 kartami CWE/OWASP (od 2026-05-08)
+- [x] Auth pages na desktopie maja info-panel obok formularza, na mobile fall-back do single column
+
+### Baza danych
+- [x] SQLite (`app.db`)
+- [x] Migracje idempotentne (`MigrateDB`) — tworzenie + `ALTER TABLE ADD COLUMN`
+- [x] Tabele: `users`, `blog`, `comments`
+- [x] Seed: 3 posty demo (Welcome / SQL Injection 101 / Stored XSS demo) + 3 userzy (admin / user1 / alice)
+- [x] Zalaczniki do postow (multipart upload, limit 5 MB, sanitizacja path)
+
+### Testy
+- [x] `main_integration_test.go` z tagiem `integration`
+- [x] 13+ testow: ping, posts CRUD, login JSON, login UI, partial routes, register, delete authorization, SQLi vuln/secure, Stored XSS vuln/secure, force-vuln endpointy
+- [x] Wszystkie zielone (`go test -tags=integration -count=1 . -> ok`)
+
+Wniosek: backend i UI maja stabilny MVP. Etapy A-D + 5 z 7 podatnosci dla n=3 sa gotowe. Brakuje CSRF (P1), Security Misconfiguration (P2), oraz uzupelnienia raportu i probnej obrony.
 
 ## 2) Cel docelowy (target stack)
 
@@ -101,6 +128,16 @@ Definition of done:
 - ten sam atak dziala w vulnerable
 - ten sam atak jest blokowany w secure
 
+Status: [~] W TRAKCIE
+- [x] SQL Injection (Krok 1, 2026-05-03)
+- [x] Stored XSS (Krok 2, 2026-05-04)
+- [x] Broken Authentication (Krok 3, 2026-05-03)
+- [x] Broken Access Control (Krok 4, 2026-05-03)
+- [x] Sensitive Data Exposure (Krok 5, 2026-05-03)
+- [ ] CSRF — vuln endpoint istnieje, brak secure (token + walidacja)
+- [ ] Security Misconfiguration — brak middleware naglowkow + release mode
+- [ ] (opcjonalnie) Path Traversal / LFI, Command Injection
+
 ### Etap F - Finalizacja scenariuszy bezpieczenstwa i obrony
 
 1. Domknij wymagane podatnosci (SQL Injection i XSS) w trybach vulnerable/secure.
@@ -113,56 +150,79 @@ Definition of done:
 - brak regresji endpointow i tras UI
 - material demo jest gotowy do prezentacji
 
+Status: [ ] DO ZROBIENIA
+- [x] SQLi i XSS gotowe end-to-end
+- [x] Hub `/ui/vuln-demos` jako one-stop shop dla demo
+- [x] Cheat-sheet drawer z payloadami pod reka
+- [ ] Sekcje raportu dla Broken Auth / BAC / SDE (kod jest, brak rozdzialu w PLAN_IMPLEMENTACJI_PODATNOSCI.md)
+- [ ] Probna obrona z zegarkiem
+- [ ] Checklista atakow (gotowe payloady + kolejnosc krokow demo)
+
 ## 4) Co robimy teraz i co dalej (konkretnie)
 
-### Aktualny sprint: Sprint 1 (w trakcie)
+### Aktualny sprint: Sprint 3 (Etap E w trakcie, Etap F do zaczecia)
 
+Ukonczone w Sprint 1-2:
 - [x] MVP backend i testy integracyjne
 - [x] Refaktor struktury (`internal/*`)
-- [x] Start warstwy widokow (Templ + podstawowe strony)
-- [x] Etap C (HTMX) dla flow posts i login
-- [x] Etap D (Tailwind) - pipeline + stylowanie widokow
+- [x] Etap B (Templ + podstawowe strony)
+- [x] Etap C (HTMX dla flow posts/login/register/comments/search)
+- [x] Etap D (Tailwind pipeline + stylowanie + design handoff)
+
+Ukonczone w Sprint 3 (do 2026-05-08):
+- [x] Etap E czesciowo: 5 z 7 wymaganych podatnosci dla wariantu n=3 (SQLi, XSS, Broken Auth, BAC, SDE)
+- [x] Hub `/ui/vuln-demos` z 6 kartami CWE/OWASP
+- [x] Strona detalu posta `/ui/posts/view/:id` z formularzem komentarzy (Stored XSS demo)
+- [x] Force-vuln endpointy `/api/search-vulnerable` i `/api/comments-vulnerable` dla side-by-side
+- [x] Naprawiony bug Tailwind purge (klasy z helperow Go)
+- [x] Polish UI Login/Register (dwukolumnowe z hero)
 
 ### Nastepny krok (najblizsze 2-3 dni)
 
-1. Rozwinac HTMX o dodatkowe partiale i obsluge bledow UX (komunikaty i loading states).
-2. Wejsc w Etap E i zaczas implementowac pierwsze podatnosci vulnerable vs secure.
-3. Wejsc w Etap F i przygotowac komplet scenariuszy oraz materialow pod obrone.
+1. **CSRF secure mode** (P1, ~M) — middleware token + walidacja w POST/PUT/DELETE; hidden input w formularzach UI; test integracyjny z brakujacym tokenem -> 403.
+2. **Security Misconfiguration** (P2, ~S) — middleware `SecurityHeaders` (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy), `gin.SetMode("release")` w secure trybie, ukryty stack trace.
+3. **Sekcje raportu** (~S kazda) — uzupelnic PLAN_IMPLEMENTACJI_PODATNOSCI.md o Krok 3 (Broken Auth), Krok 4 (BAC), Krok 5 (SDE) — opisy, PoC, diff.
+4. **Probna obrona** (~M) — przejscie po wszystkich scenariuszach z zegarkiem.
+
+Opcjonalnie:
+- Path Traversal / LFI (P2)
+- Command Injection (P3)
 
 ## 4a) Co sie zmienilo od ostatniego czasu
 
-1. Wdrozone Etap A (struktura pakietow `internal/*`).
-2. Logika DB przeniesiona do `internal/db`.
-3. Routing oparty o handler/service.
-4. Widoki przeniesione z recznego HTML w Go do pliku `internal/views/pages.templ`.
-5. Dodane i dzialajace trasy UI (`/ui/posts`, `/ui/login`).
-6. Dodane i dzialajace trasy partial HTMX (`/ui/partials/posts`, `/ui/partials/login`).
-7. Dodane testy integracyjne dla tras UI i tras partial HTMX.
-8. Dodany pipeline Tailwind (`package.json`, `tailwind.config.js`, `assets/css/input.css`, `static/css/app.css`).
-9. Widoki ostylowane klasami Tailwind i podlaczone przez `/static/css/app.css`.
-10. Dodatkowe utwardzenie kodu:
-   - sprawdzanie `rows.Err()` po iteracji
-   - spojna obsluga bledow renderowania widokow
+Ostatnie 6 dni (2026-05-03 -> 2026-05-08):
+1. Krok 0: Fundament (auth bcrypt, cookie sesji, hardcoded admin z env, zalaczniki do postow, design handoff z claude.ai/design)
+2. Krok 1: SQL Injection (vuln + secure side-by-side, force-vuln endpoint, UI z payloadami, testy)
+3. Krok 2: Stored XSS (komentarze, `@templ.Raw` vs `{ }`, HTML strip server-side, force-vuln endpoint, testy)
+4. Krok 3-5: Broken Auth + BAC + SDE (zaimplementowane, sa w status board, brak osobnego rozdzialu w PLAN_IMPLEMENTACJI_PODATNOSCI.md)
+5. Krok 6 (UI/design refactor): hub `/ui/vuln-demos`, Login/Register dwukolumnowe, naprawa Tailwind purge
 
 ## 5) Minimalna checklista techniczna
 
-- [ ] Konfiguracja env (`PORT`, `DB_PATH`, `SECURITY_ENABLED`)
-- [ ] Migracje uruchamiane automatycznie przy starcie lub komenda `make migrate`
-- [ ] Logowanie bledow bez wycieku wrazliwych danych
-- [ ] Testy integracyjne odpalane w CI
-- [ ] README z instrukcja local run (Go + npm)
+- [x] Konfiguracja env (`PORT`, `DB_PATH`, `SECURITY_ENABLED`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`)
+- [x] Migracje uruchamiane automatycznie przy starcie (`MigrateDB` w `main.go::main`)
+- [x] Testy integracyjne (`go test -tags=integration -count=1 .`) — wszystkie zielone
+- [x] README z instrukcja local run (Go + npm)
+- [ ] Logowanie bledow bez wycieku stack trace w `release` mode (czeka na Security Misconfiguration secure)
+- [ ] CI z testami (opcjonalnie, nie wymagane przez sylabus)
 
 ## 6) Proponowany podzial prac dla zespolu 2-3 osoby
 
-1. Osoba A: DB + migracje + dane seed
-2. Osoba B: Templ + HTMX + Tailwind
-3. Osoba C (lub rotacyjnie): podatnosci vulnerable/secure + PoC + dokumentacja
+1. Osoba A: DB + migracje + dane seed (zrealizowane). Teraz: CSRF secure (token middleware + walidacja).
+2. Osoba B: Templ + HTMX + Tailwind (zrealizowane). Teraz: hidden CSRF input w formularzach + sekcje raportu Krok 3-5.
+3. Osoba C (jezeli jest): Security Misconfiguration (middleware naglowkow) + opcjonalnie Path Traversal / LFI.
 
 ## 7) Kryterium gotowosci do obrony
 
-- Dla kazdej podatnosci macie:
-  - dzialajacy atak (vulnerable)
-  - zablokowany atak (secure)
-  - roznice w kodzie i wyjasnienie
-- Calosc uruchamiana lokalnie (`go run main.go` + zbudowane CSS)
-- Raport techniczny uzupelniony zgodnie z wymaganiami z `info.md`
+Dla kazdej podatnosci:
+- [x] dzialajacy atak (vulnerable)
+- [x] zablokowany atak (secure)
+- [x] roznice w kodzie i wyjasnienie
+- [~] sekcja w raporcie (kompletna dla SQLi i XSS, brakuje dla Broken Auth/BAC/SDE)
+
+Calosc:
+- [x] uruchamianie lokalne (`PORT=:8080 SECURITY_ENABLED=false go run .`, `npm run build:css`)
+- [x] testy integracyjne zielone
+- [x] hub `/ui/vuln-demos` ulatwia nawigacje miedzy scenariuszami w trakcie demo
+- [ ] dry-run prezentacji
+- [ ] CSRF secure (zeby zespol n=3 mial wymagane minimum 5 dodatkowych)

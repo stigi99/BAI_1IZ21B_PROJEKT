@@ -692,6 +692,64 @@ templ EditPostPage(securityEnabled bool, loggedIn bool, username string, post se
 	}
 }
 
+type VulnDemo struct {
+	Emoji       string
+	Title       string
+	CWE         string
+	OWASP       string
+	Status      string // "ready" | "wip" | "todo"
+	Description string
+	Href        string
+	Payload     string
+}
+
+templ vulnStatusPill(status string) {
+	switch status {
+		case "ready":
+			<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">✓ ready</span>
+		case "wip":
+			<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">⏳ wip</span>
+		default:
+			<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">◯ todo</span>
+	}
+}
+
+templ VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos []VulnDemo) {
+	@Layout("Vuln Demos", securityEnabled, loggedIn, username) {
+		<div class="space-y-6">
+			<div>
+				<h1 class="text-3xl font-bold text-slate-900">✏️ Vuln Demos</h1>
+				<p class="text-slate-600 mt-2 text-sm">Each card jumps to a focused atak/obrona scenario. Toggle <code class="font-mono">SECURITY_ENABLED</code> to flip behaviour, then replay the same payload.</p>
+			</div>
+			<div class="grid sm:grid-cols-2 gap-4">
+				for _, d := range demos {
+					<a href={ templ.SafeURL(d.Href) } class="rounded-2xl border border-fuchsia-100 bg-white/95 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_16px_50px_rgba(236,72,153,0.14)] block">
+						<div class="flex items-start justify-between gap-3 mb-2">
+							<div class="flex items-center gap-2">
+								<span class="text-2xl">{ d.Emoji }</span>
+								<h3 class="text-base font-bold text-slate-900">{ d.Title }</h3>
+							</div>
+							@vulnStatusPill(d.Status)
+						</div>
+						<div class="flex flex-wrap gap-1.5 text-[10px] font-mono text-slate-500 mb-2">
+							if d.CWE != "" {
+								<span class="rounded bg-slate-100 px-1.5 py-0.5">{ d.CWE }</span>
+							}
+							if d.OWASP != "" {
+								<span class="rounded bg-slate-100 px-1.5 py-0.5">{ d.OWASP }</span>
+							}
+						</div>
+						<p class="text-sm text-slate-700 leading-relaxed mb-3">{ d.Description }</p>
+						if d.Payload != "" {
+							<code class="block bg-slate-900 text-rose-200 rounded-lg p-2 font-mono text-[11px] break-all">{ d.Payload }</code>
+						}
+					</a>
+				}
+			</div>
+		</div>
+	}
+}
+
 // ============================================================================
 // Post Detail + Comments (Stored XSS demo)
 // ============================================================================

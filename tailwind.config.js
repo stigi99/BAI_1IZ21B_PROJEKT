@@ -2,7 +2,20 @@
 module.exports = {
   content: [
     "./internal/views/**/*.templ",
-    "./internal/views/**/*_templ.go"
+    "./internal/views/**/*.go",
+    "./internal/handlers/**/*.go"
+  ],
+  safelist: [
+    "sec-vuln",
+    "sec-secure",
+    "min-h-screen",
+    "flex",
+    "flex-col",
+    "flex-1",
+    "bg-shell",
+    "bg-fixed",
+    "text-slate-900",
+    "antialiased"
   ],
   theme: {
     extend: {

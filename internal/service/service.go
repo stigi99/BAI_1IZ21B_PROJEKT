@@ -370,6 +370,20 @@ func (s *Service) CreateComment(postID int, author, body string) (int64, error) 
 	return res.LastInsertId()
 }
 
+// CreateCommentVulnerable always stores the body verbatim, regardless of the
+// SECURITY_ENABLED toggle. This keeps the force-vulnerable endpoint useful for
+// side-by-side demo comparisons.
+func (s *Service) CreateCommentVulnerable(postID int, author, body string) (int64, error) {
+	res, err := s.db.Exec(
+		"INSERT INTO comments (post_id, author, body) VALUES (?, ?, ?)",
+		postID, author, body,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
 // GetCommentsByPostID returns all comments for a given post, ordered oldest
 // first.
 func (s *Service) GetCommentsByPostID(postID int) ([]Comment, error) {

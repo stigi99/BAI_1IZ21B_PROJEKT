@@ -13,10 +13,14 @@ University project for the course **Network Infrastructure Security**. The appli
 
 ## Overview
 
-The project exposes a minimal HTTP API with a SQLite-backed database and a server-rendered UI. It is intended as a security lab where the same application can be studied in two modes:
+A small Go web app with a SQLite-backed database and a server-rendered UI built with Templ + HTMX + Tailwind. The same application runs in two modes controlled by a single `SECURITY_ENABLED` flag:
 
-- insecure mode, where only basic checks are applied
-- secure mode, where authentication and validation logic are expected to be enforced
+- **vulnerable mode** — deliberate weaknesses for atak/obrona live demos
+- **secure mode** — same code path with the proper security control enabled
+
+Each scenario ships side-by-side: visit the page, fire a payload from the cheat-sheet drawer, watch it succeed in vuln, then flip the toggle and watch it fail in secure. The differences are confined to small `if h.securityEnabled { ... }` branches so the diff between modes is reviewable in seconds.
+
+UI extras layered on top (from the claude.ai/design handoff): sakura petals, Burp-style Request Inspector, Attack Timeline that exports a Markdown PoC, mascot reacting to the current mode, and a 14-section payload cheat-sheet drawer with live filter.
 
 ## Run the App
 
@@ -32,10 +36,12 @@ The project exposes a minimal HTTP API with a SQLite-backed database and a serve
 go mod tidy
 npm install
 npm run build:css
-go run main.go
+go run .
 ```
 
-The server starts on `http://localhost:8080` and creates a local SQLite database file named `app.db` automatically if it does not already exist.
+> Use `go run .` (compiles every `.go` file in the package), not `go run main.go` — `main.go` references symbols defined in tests and other files.
+
+The server starts on `http://localhost:8080` and creates a local SQLite database (`app.db`) automatically with seeded data: 3 demo posts (Welcome / SQL Injection 101 / Stored XSS demo) and 3 users (`admin`, `user1`, `alice`).
 
 Optional environment variables:
 
@@ -46,28 +52,68 @@ Optional environment variables:
 - `ADMIN_PASSWORD` (default: `admin`)
 - `ADMIN_EMAIL` (default: `admin@example.com`)
 
+Run in **vulnerable mode** (default) for the live attack demos:
+
+```bash
+SECURITY_ENABLED=false go run .
+```
+
+Run in **secure mode** to prove the same attacks are blocked:
+
+```bash
+SECURITY_ENABLED=true go run .
+```
+
+> Tip: delete `app.db` between mode switches if you want a fresh seed (passwords are stored differently per mode).
+
 ### Available endpoints
 
-- `GET /ping` - health check, returns `pong`
-- `GET /posts` - returns published blog posts
-- `POST /login` - accepts JSON login data
-- `POST /register` - creates a new regular user account
+JSON API:
 
-### Available UI routes
+- `GET /ping` — health check, returns `pong`
+- `GET /posts` — published blog posts
+- `POST /posts`, `PUT /posts/:id`, `DELETE /posts/:id` — CRUD (login required)
+- `POST /login`, `POST /register`, `POST /logout`
+- `GET /api/search?q=...` — SQL Injection demo, honors `SECURITY_ENABLED`
+- `GET /api/search-vulnerable?q=...` — force-vulnerable SQLi (always concatenated, for side-by-side demo)
+- `POST /api/comments-vulnerable` — force-vulnerable XSS (always stores raw HTML)
+- `GET/POST /csrf-vulnerable-form` — CSRF demo form (no token validation)
 
-- `GET /` - redirects to `/ui/posts`
-- `GET /ui/posts` - server-rendered posts view
-- `GET /ui/login` - server-rendered login view
-- `POST /ui/login` - login form submit
-- `GET /ui/partials/posts` - HTMX partial for posts list refresh
-- `POST /ui/partials/login` - HTMX partial for login result
+UI routes:
+
+- `GET /` — redirects to `/ui/posts`
+- `GET /ui/posts` — posts list with create/edit/delete
+- `GET /ui/posts/view/:id` — single post + comments (Stored XSS demo)
+- `POST /ui/posts/view/:id/comments` — submit comment (HTMX)
+- `GET /ui/posts/edit/:id` — edit form
+- `GET /ui/login`, `POST /ui/login`
+- `GET /ui/register`, `POST /ui/register`
+- `GET /ui/search` — SQL Injection demo with payload hints
+- `GET /ui/vuln-demos` — hub with all vulnerability scenarios (CWE/OWASP labelled)
+
+HTMX partials:
+
+- `POST /ui/partials/login`, `POST /ui/partials/register`
+- `GET /ui/partials/posts`, `POST /ui/partials/posts/create`
+- `POST /ui/partials/search`
+- `POST /ui/partials/posts/view/:id/comments`
 
 Example login request:
 
 ```bash
 curl -X POST http://localhost:8080/login \
 	-H "Content-Type: application/json" \
-	-d '{"username":"admin","password":"secret"}'
+	-d '{"username":"admin","password":"admin"}'
+```
+
+Example SQL Injection (in vulnerable mode):
+
+```bash
+curl "http://localhost:8080/api/search?q=' OR 1=1 --"
+# leaks every row including drafts
+
+curl "http://localhost:8080/api/search-vulnerable?q=' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --"
+# exfiltrates the users table
 ```
 
 ## Security Toggle Mechanism
@@ -136,19 +182,42 @@ Watch during development:
 npm run watch:css
 ```
 
+## Implemented Vulnerabilities (Stage E)
+
+Status board (5 of 7 done for n=3 team):
+
+| # | Vulnerability | Status | Demo route |
+|---|---------------|--------|-----------|
+| 1 | SQL Injection | ✅ ready | `/ui/search`, `/api/search-vulnerable` |
+| 2 | Stored XSS | ✅ ready | `/ui/posts/view/3` (Stored XSS demo post) |
+| 3 | Broken Authentication | ✅ ready | `/ui/login` (any password works in vuln mode) |
+| 4 | Broken Access Control | ✅ ready | `/ui/posts` (delete any post in vuln mode) |
+| 5 | Sensitive Data Exposure | ✅ ready | `sqlite> SELECT password_hash FROM users;` |
+| 6 | CSRF | ⏳ vuln only | `/csrf-vulnerable-form` (no token validation in secure yet) |
+| 7 | Security Misconfiguration | 🚧 todo | (no security headers middleware yet) |
+
+See `PLAN_IMPLEMENTACJI_PODATNOSCI.md` for full per-vulnerability documentation (description, PoC, before/after diff).
+
 ## What Changed Recently
 
-1. Stage A completed (project split into `internal/*` packages).
-2. Stage B completed (Templ UI implemented and separated to `.templ` file).
-3. UI integration tests added for `/ui/posts` and `/ui/login`.
-4. Service improved with `rows.Err()` check after iteration.
-5. Rendering error handling in handlers unified and no longer ignored.
-6. Stage C completed with HTMX partial routes for posts and login.
-7. Stage D completed with Tailwind pipeline and styled Templ views.
-8. Static assets route added (`/static`) and app CSS served from generated file.
+Sprint 1-2 (project setup):
+1. Stage A — project split into `internal/*` packages
+2. Stage B — Templ UI extracted to `.templ` files
+3. Stage C — HTMX partial routes for posts/login/register
+4. Stage D — Tailwind pipeline + styled views + design handoff from claude.ai/design
+
+Sprint 3 (vulnerability scenarios + UI polish, 2026-05-03 → 2026-05-08):
+5. Foundation hardening: bcrypt auth, HTTP-only session cookie, env-driven admin seed, post attachments (multipart upload, 5 MB limit)
+6. SQL Injection demo end-to-end: `/api/search` (toggle), `/api/search-vulnerable` (force-vuln), `/ui/search` page with payload hints, integration tests for both modes
+7. Stored XSS demo end-to-end: comments table, `/ui/posts/view/:id` page, `@templ.Raw` (vuln) vs `{ }` auto-escape (secure) + server-side HTML strip, integration tests
+8. Vuln Demos hub `/ui/vuln-demos` — one-stop nav with CWE/OWASP labels and copy-pastable payloads
+9. UI polish: two-column hero on Login/Register, refactored post cards with `Read more →`, cheat-sheet drawer with filter and 14 sections (SQLi, XSS, IDOR, Path, CmdInj, SSRF, CSRF, Auth, SDE, Misconfig, Upload, Burp, Glossary)
+10. Tailwind config fix — content globs now scan `.go` files (previously only `.templ`/`*_templ.go`), so utility classes referenced from `layout_helpers.go` no longer get purged
 
 ## Next Steps
 
-1. Stage E: implement first vulnerable/secure security scenarios.
-2. Expand HTMX UX (loading/error states for more flows).
-3. Harden current SQLite-based app and finalize defense materials.
+1. **CSRF secure mode** (P1) — middleware generating per-session token, validator for POST/PUT/DELETE, hidden input in UI forms
+2. **Security Misconfiguration** (P2) — middleware setting CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy headers in secure mode + `gin.SetMode("release")`
+3. Add report sections for Broken Auth / BAC / SDE (already implemented, missing the per-vulnerability chapter in `PLAN_IMPLEMENTACJI_PODATNOSCI.md`)
+4. Dry-run defense presentation
+5. Optional: Path Traversal / LFI, Command Injection

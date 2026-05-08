@@ -577,3 +577,113 @@ func TestIntegration_CreateDeleteRequireLogin_DefaultMode(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, unauthDeleteResp.Code)
 	}
 }
+
+// ---- Stored XSS demo --------------------------------------------------------
+
+const xssScriptPayload = `<script>alert('XSS-' + document.cookie)</script>`
+const xssImgPayload = `<img src=x onerror="alert(1)">`
+
+func postCommentForm(t *testing.T, router *gin.Engine, postID int, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	form := url.Values{}
+	form.Set("body", body)
+	return doFormRequest(t, router, http.MethodPost, "/ui/posts/view/"+strconv.Itoa(postID)+"/comments", form.Encode())
+}
+
+func TestIntegration_StoredXSS_VulnerableMode(t *testing.T) {
+	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
+	t.Cleanup(func() { _ = dbConn.Close() })
+
+	// Seed post #1 exists from SeedDB ("Hello World").
+	postID := 1
+
+	t.Run("script_payload_stored_and_rendered_raw", func(t *testing.T) {
+		resp := postCommentForm(t, router, postID, xssScriptPayload)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		// Partial response is the comments list — must contain the raw payload
+		// (not escaped) so the browser actually executes it.
+		if !strings.Contains(resp.Body.String(), xssScriptPayload) {
+			t.Fatalf("expected raw <script> tag in vulnerable comments partial; body=%s", resp.Body.String())
+		}
+
+		// Full page render must also include it raw.
+		page := doRequest(t, router, http.MethodGet, "/ui/posts/view/"+strconv.Itoa(postID), "")
+		if page.Code != http.StatusOK {
+			t.Fatalf("expected 200 on detail page, got %d", page.Code)
+		}
+		if !strings.Contains(page.Body.String(), xssScriptPayload) {
+			t.Fatalf("vulnerable detail page should embed raw payload; not found")
+		}
+	})
+
+	t.Run("img_onerror_payload_stored_and_rendered_raw", func(t *testing.T) {
+		resp := postCommentForm(t, router, postID, xssImgPayload)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		if !strings.Contains(resp.Body.String(), `onerror="alert(1)"`) {
+			t.Fatalf("expected onerror attribute preserved; body=%s", resp.Body.String())
+		}
+	})
+}
+
+func TestIntegration_StoredXSS_SecureMode(t *testing.T) {
+	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, true)
+	t.Cleanup(func() { _ = dbConn.Close() })
+
+	postID := 1
+
+	t.Run("script_payload_escaped_or_stripped", func(t *testing.T) {
+		resp := postCommentForm(t, router, postID, xssScriptPayload)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		body := resp.Body.String()
+		// Must NOT contain a raw executable <script> opener with the payload.
+		if strings.Contains(body, "<script>alert(") {
+			t.Fatalf("secure mode leaked raw <script> tag; body=%s", body)
+		}
+		// Verify the response was rendered (contains the comments-list anchor).
+		if !strings.Contains(body, `id="comments-list"`) {
+			t.Fatalf("expected comments-list in response; body=%s", body)
+		}
+	})
+
+	t.Run("img_onerror_stripped_on_storage", func(t *testing.T) {
+		resp := postCommentForm(t, router, postID, xssImgPayload)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		body := resp.Body.String()
+		if strings.Contains(body, `onerror=`) {
+			t.Fatalf("secure mode must not preserve onerror= as raw HTML; body=%s", body)
+		}
+	})
+
+	t.Run("force_vulnerable_endpoint_still_stores_raw", func(t *testing.T) {
+		// /api/comments-vulnerable bypasses the toggle.
+		form := url.Values{}
+		form.Set("post_id", strconv.Itoa(postID))
+		form.Set("body", xssScriptPayload)
+		resp := doFormRequest(t, router, http.MethodPost, "/api/comments-vulnerable", form.Encode())
+		if resp.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		// Verify the verbatim payload landed in DB.
+		var stored string
+		if err := dbConn.QueryRow(
+			"SELECT body FROM comments WHERE post_id = ? ORDER BY id DESC LIMIT 1",
+			postID,
+		).Scan(&stored); err != nil {
+			t.Fatalf("failed to read back comment: %v", err)
+		}
+		if stored != xssScriptPayload {
+			t.Fatalf("force-vulnerable should preserve payload verbatim; got %q", stored)
+		}
+	})
+}
+
+// io.Discard is referenced indirectly; keep import alive.
+var _ = io.Discard
