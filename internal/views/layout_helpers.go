@@ -14,3 +14,10 @@ func commentPlaceholder(securityEnabled bool) string {
 	}
 	return "Try <script>alert('XSS')</script>"
 }
+
+func authHeroTip(mode string) string {
+	if mode == "register" {
+		return "Tip: open the ⚔️ PAYLOADS drawer on the right edge — every payload is one click away."
+	}
+	return "Tip: in vulnerable mode the login accepts any password for an existing user (Broken Auth demo)."
+}

@@ -425,37 +425,76 @@ templ LoginResult(message string, isError bool) {
 	@ResultMessage(message, isError)
 }
 
+// authHero is the marketing/info side panel shown next to the login &
+// register forms so the page does not feel empty on wide viewports.
+templ authHero(securityEnabled bool, mode string) {
+	<div class="rounded-2xl border border-fuchsia-100 bg-gradient-to-br from-white/90 via-fuchsia-50/60 to-sky-50/60 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.10)] backdrop-blur space-y-5">
+		<div class="flex items-center gap-3">
+			<span class="text-4xl">🌸</span>
+			<div>
+				<h2 class="text-2xl font-extrabold text-slate-900">BAI Security Lab</h2>
+				<p class="text-xs text-slate-500">Vulnerable vs Secure — same app, two modes</p>
+			</div>
+		</div>
+		<p class="text-sm text-slate-700 leading-relaxed">
+			A teaching playground for OWASP Top 10. Each scenario ships in two flavours
+			gated by a single <code class="font-mono text-fuchsia-700">SECURITY_ENABLED</code> toggle —
+			pop a payload in vulnerable mode, watch it fail in secure mode, then read the diff.
+		</p>
+		<ul class="space-y-2 text-sm text-slate-700">
+			<li class="flex items-start gap-2"><span class="mt-0.5">💉</span><span><strong>SQL Injection</strong> — concatenated vs parameterized.</span></li>
+			<li class="flex items-start gap-2"><span class="mt-0.5">🪲</span><span><strong>Stored XSS</strong> — raw HTML render vs auto-escape.</span></li>
+			<li class="flex items-start gap-2"><span class="mt-0.5">🔐</span><span><strong>Broken Auth</strong> — any password vs bcrypt.</span></li>
+			<li class="flex items-start gap-2"><span class="mt-0.5">🔓</span><span><strong>Access Control</strong> — open delete vs author check.</span></li>
+		</ul>
+		<div class="flex flex-wrap gap-2 pt-3 border-t border-fuchsia-100">
+			if securityEnabled {
+				<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">🛡️ Currently: Secure</span>
+			} else {
+				<span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">⚠️ Currently: Vulnerable</span>
+			}
+			<a href="/ui/vuln-demos" class="inline-flex items-center gap-1 rounded-full bg-fuchsia-100 px-3 py-1 text-xs font-bold text-fuchsia-700 hover:bg-fuchsia-200 transition">✏️ See all demos</a>
+		</div>
+		<p class="text-[11px] text-slate-500 italic leading-snug">{ authHeroTip(mode) }</p>
+	</div>
+}
+
 templ LoginPage(securityEnabled bool, loggedIn bool, username string, message string, isError bool) {
 	@Layout("Login", securityEnabled, loggedIn, username) {
-				<div class="max-w-md mx-auto">
-					<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
-				<h1 class="text-3xl font-bold text-slate-900 mb-2">🔑 Login</h1>
-				<p class="text-slate-600 mb-6">Access your account to manage posts</p>
+		<div class="grid lg:grid-cols-5 gap-6 max-w-5xl mx-auto items-start">
+			<div class="lg:col-span-3 hidden lg:block">
+				@authHero(securityEnabled, "login")
+			</div>
+			<div class="lg:col-span-2">
+				<div class="rounded-2xl border border-fuchsia-100 bg-white/95 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+					<h1 class="text-3xl font-bold text-slate-900 mb-2">🔑 Login</h1>
+					<p class="text-slate-600 mb-6 text-sm">Access your account to manage posts</p>
 
-				if message != "" {
-					@ResultMessage(message, isError)
-				}
+					if message != "" {
+						@ResultMessage(message, isError)
+					}
 
-				<form method="post" action="/ui/login" class="mt-6 space-y-4" hx-post="/ui/partials/login" hx-target="#login-result" hx-swap="innerHTML">
-					<div>
-						<label class="block text-sm font-semibold text-slate-700 mb-2" for="username">Username</label>
-							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="username" name="username" placeholder="your username" required autocomplete="username" />
-					</div>
-					<div>
-						<label class="block text-sm font-semibold text-slate-700 mb-2" for="password">Password</label>
+					<form method="post" action="/ui/login" class="mt-4 space-y-4" hx-post="/ui/partials/login" hx-target="#login-result" hx-swap="innerHTML">
+						<div>
+							<label class="block text-sm font-semibold text-slate-700 mb-2" for="username">Username</label>
+							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="username" name="username" placeholder="admin" required autocomplete="username" />
+						</div>
+						<div>
+							<label class="block text-sm font-semibold text-slate-700 mb-2" for="password">Password</label>
 							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="password" name="password" type="password" placeholder="••••••••" required autocomplete="current-password" />
-					</div>
-					<div id="login-result"></div>
+						</div>
+						<div id="login-result"></div>
 						<button class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
-						✓ Login
-						<span class="htmx-indicator">...</span>
-					</button>
-				</form>
+							✓ Login
+							<span class="htmx-indicator">...</span>
+						</button>
+					</form>
 
-				<p class="text-center text-sm text-slate-600 mt-6">
-					Don't have an account?
-					<a href="/ui/register" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Register here</a>
-				</p>
+					<p class="text-center text-sm text-slate-600 mt-6">
+						Don't have an account?
+						<a href="/ui/register" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Register here</a>
+					</p>
+				</div>
 			</div>
 		</div>
 	}
@@ -463,41 +502,46 @@ templ LoginPage(securityEnabled bool, loggedIn bool, username string, message st
 
 templ RegisterPage(securityEnabled bool, loggedIn bool, username string, message string, isError bool) {
 	@Layout("Register", securityEnabled, loggedIn, username) {
-				<div class="max-w-md mx-auto">
-					<div class="rounded-2xl border border-fuchsia-100 bg-white/90 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
-				<h1 class="text-3xl font-bold text-slate-900 mb-2">✍️ Create Account</h1>
-				<p class="text-slate-600 mb-6">Join BAI Lab to manage posts</p>
+		<div class="grid lg:grid-cols-5 gap-6 max-w-5xl mx-auto items-start">
+			<div class="lg:col-span-3 hidden lg:block">
+				@authHero(securityEnabled, "register")
+			</div>
+			<div class="lg:col-span-2">
+				<div class="rounded-2xl border border-fuchsia-100 bg-white/95 p-8 shadow-[0_12px_40px_rgba(236,72,153,0.12)] backdrop-blur">
+					<h1 class="text-3xl font-bold text-slate-900 mb-2">✍️ Create Account</h1>
+					<p class="text-slate-600 mb-6 text-sm">Join BAI Lab to manage posts</p>
 
-				if message != "" {
-					@ResultMessage(message, isError)
-				}
+					if message != "" {
+						@ResultMessage(message, isError)
+					}
 
-				<form method="post" action="/ui/register" class="mt-6 space-y-4" hx-post="/ui/partials/register" hx-target="#register-result" hx-swap="innerHTML">
-					<div>
-						<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-username">Username</label>
+					<form method="post" action="/ui/register" class="mt-4 space-y-4" hx-post="/ui/partials/register" hx-target="#register-result" hx-swap="innerHTML">
+						<div>
+							<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-username">Username</label>
 							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="reg-username" name="username" placeholder="Choose a username" required minlength="3" maxlength="50" autocomplete="username" />
-						<p class="text-xs text-slate-500 mt-1">3-50 characters</p>
-					</div>
-					<div>
-						<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-email">Email</label>
+							<p class="text-xs text-slate-500 mt-1">3-50 characters</p>
+						</div>
+						<div>
+							<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-email">Email</label>
 							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="reg-email" name="email" type="email" placeholder="your@email.com" required autocomplete="email" />
-					</div>
-					<div>
-						<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-password">Password</label>
+						</div>
+						<div>
+							<label class="block text-sm font-semibold text-slate-700 mb-2" for="reg-password">Password</label>
 							<input class="w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-slate-900 outline-none ring-2 ring-transparent focus:border-pink-400 focus:ring-pink-100 transition" id="reg-password" name="password" type="password" placeholder="••••••••" required minlength="6" autocomplete="new-password" />
-						<p class="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
-					</div>
-					<div id="register-result"></div>
+							<p class="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
+						</div>
+						<div id="register-result"></div>
 						<button class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white font-semibold shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-pink-300 active:translate-y-0" type="submit">
-						✓ Create Account
-						<span class="htmx-indicator">...</span>
-					</button>
-				</form>
+							✓ Create Account
+							<span class="htmx-indicator">...</span>
+						</button>
+					</form>
 
-				<p class="text-center text-sm text-slate-600 mt-6">
-					Already have an account?
-					<a href="/ui/login" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Login here</a>
-				</p>
+					<p class="text-center text-sm text-slate-600 mt-6">
+						Already have an account?
+						<a href="/ui/login" class="font-semibold text-fuchsia-600 hover:text-fuchsia-700 transition">Login here</a>
+					</p>
+				</div>
 			</div>
 		</div>
 	}
