@@ -47,7 +47,7 @@ func InitDB(filepath string) *sql.DB {
 	return db
 }
 
-// MigrateDB creates the blog and users tables if they do not already exist.
+// MigrateDB creates the blog, users, and comments tables if they do not already exist.
 func MigrateDB(db *sql.DB) {
 	createBlog := `
 	CREATE TABLE IF NOT EXISTS blog (
@@ -73,8 +73,8 @@ func MigrateDB(db *sql.DB) {
 	CREATE TABLE IF NOT EXISTS comments (
 		id         INTEGER PRIMARY KEY AUTOINCREMENT,
 		post_id    INTEGER NOT NULL,
-		author     VARCHAR(50),
-		body       TEXT,
+		author     VARCHAR(50) NOT NULL DEFAULT 'anonymous',
+		body       TEXT NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 
@@ -116,24 +116,10 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 			title, content, author string
 			published              int
 		}{
-			{
-				"Welcome to BAI Lab",
-				"This server-rendered demo contrasts an insecure and a secure version of the same app. Toggle the SECURITY_ENABLED switch to flip behaviour. Each post links to a focused demo — read on, then try the payloads from the Cheat-Sheet drawer.",
-				adminUsername,
-				1,
-			},
-			{
-				"SQL Injection 101",
-				"In Vulnerable mode the search endpoint concatenates user input directly into a SELECT. Try the OR-tautology payload from the Cheat-Sheet drawer.\n\nIn Secure mode the same query goes through a parameterized LIKE, so the apostrophe is just text. Open the Search page from the navbar to compare side by side.",
-				adminUsername,
-				1,
-			},
-			{
-				"Stored XSS demo",
-				"Comments are rendered unescaped in Vulnerable mode. The classic script-alert payload works — open this post and post a comment to see it pop. In Secure mode the comment body is HTML-escaped on render and stripped server-side as defense-in-depth, so the payload renders as text.",
-				"alice",
-				1,
-			},
+			{"Hello World", "This is the first blog post.", adminUsername, 1},
+			{"Go is great", "Go makes it easy to build reliable software.", adminUsername, 1},
+			// Post by user1 — used for the IDOR / Broken Access Control demo.
+			{"User1's Post", "This post belongs to user1. In insecure mode any authenticated user can delete it.", "user1", 1},
 		}
 		for _, p := range posts {
 			if _, err := db.Exec(
@@ -142,6 +128,23 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 			); err != nil {
 				log.Printf("SeedDB blog error: %v", err)
 			}
+		}
+	}
+
+	// Seed a demo XSS comment on post 1 when the comments table is empty.
+	var commentCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM comments").Scan(&commentCount); err != nil {
+		log.Printf("SeedDB count comments error: %v", err)
+	} else if commentCount == 0 {
+		// This stored XSS payload is intentionally inserted in insecure mode so
+		// the demo works out of the box. In secure mode the body is HTML-escaped
+		// before storage, so the script tag is inert.
+		xssBody := `<img src=x onerror="alert('Stored XSS! cookie='+document.cookie)"> — demo payload`
+		if _, err := db.Exec(
+			"INSERT INTO comments (post_id, author, body) VALUES (1, 'attacker', ?)",
+			xssBody,
+		); err != nil {
+			log.Printf("SeedDB comments error: %v", err)
 		}
 	}
 
@@ -155,7 +158,6 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 		users := []struct{ username, password, email, role string }{
 			{adminUsername, adminPassword, adminEmail, "admin"},
 			{"user1", "user1pass", "user1@example.com", "user"},
-			{"alice", "alicepass", "alice@example.com", "user"},
 		}
 		for _, u := range users {
 			stored := encodePasswordForSeed(u.password, securityEnabled)

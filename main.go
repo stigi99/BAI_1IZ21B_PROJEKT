@@ -49,6 +49,7 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.GET("/api/search", h.Search())
 	router.GET("/api/search-vulnerable", h.SearchVulnerable())
 	router.POST("/api/comments-vulnerable", h.CommentsVulnerable())
+	router.POST("/api/comments-secure", h.CommentsSecure())
 	router.GET("/csrf-vulnerable-form", h.CsrfFormVulnerable())
 	router.POST("/csrf-vulnerable-form", h.CsrfFormVulnerable())
 
@@ -63,6 +64,8 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.GET("/ui/posts/edit/:id", h.PagePostEdit())
 	router.POST("/ui/posts/edit/:id", h.PagePostEditSubmit())
 	router.POST("/ui/posts/delete/:id", h.PagePostDelete())
+	router.GET("/ui/posts/:id", h.PagePostDetail())
+	router.POST("/ui/posts/:id/comment", h.PagePostCommentSubmit())
 	router.GET("/ui/login", h.PageLogin())
 	router.POST("/ui/login", h.PageLoginSubmit())
 	router.GET("/ui/register", h.PageRegister())
@@ -74,6 +77,20 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.POST("/ui/partials/login", h.PageLoginPartial())
 	router.POST("/ui/partials/register", h.PageRegisterPartial())
 	router.POST("/ui/partials/search", h.PageSearchPartial())
+
+	// Security demo pages
+	router.GET("/ui/csrf-demo", h.CsrfFormVulnerable())
+	router.POST("/ui/csrf-demo", h.CsrfFormVulnerable())
+	router.GET("/ui/csrf-secure", h.CsrfSecureForm())
+	router.POST("/ui/csrf-secure", h.CsrfSecureForm())
+	router.GET("/ui/idor-demo", h.PageIDOR())
+	router.GET("/ui/db-expose", h.PageDBExpose())
+	router.GET("/ui/path-traversal", h.PagePathTraversal())
+	router.GET("/api/files-vulnerable", h.FilesVulnerable())
+	router.GET("/api/files-secure", h.FilesSecure())
+	router.GET("/ui/cmd-injection", h.PageCmdInjection())
+	router.GET("/api/ping-vulnerable", h.PingVulnerable())
+	router.GET("/api/ping-secure", h.PingSecure())
 
 	return router
 }
