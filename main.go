@@ -31,6 +31,13 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	svc := service.New(dbConn, SecurityEnabled)
 	h := handlers.New(svc, SecurityEnabled)
 
+	// Security Misconfiguration: secure mode adds defensive HTTP headers
+	// (CSP, HSTS, X-Frame-Options, etc.) and replaces Gin's stack-trace
+	// Recovery with a sanitized 500 response. Vulnerable mode leaves the
+	// defaults so the absence of those controls is itself the demo.
+	router.Use(handlers.SecurityHeadersMiddleware(SecurityEnabled))
+	router.Use(handlers.ErrorSanitizerMiddleware(SecurityEnabled))
+
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "pong"})
 	})
@@ -52,6 +59,9 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.POST("/api/comments-secure", h.CommentsSecure())
 	router.GET("/csrf-vulnerable-form", h.CsrfFormVulnerable())
 	router.POST("/csrf-vulnerable-form", h.CsrfFormVulnerable())
+	// Deliberate crash for Security Misconfiguration demo: vulnerable mode
+	// returns Gin's stack-trace 500, secure mode returns a clean JSON 500.
+	router.GET("/debug/crash", h.DebugCrash())
 
 	router.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/ui/posts")

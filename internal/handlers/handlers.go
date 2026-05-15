@@ -316,13 +316,12 @@ func (h *Handler) PagePosts() gin.HandlerFunc {
 			return
 		}
 
+		// Flash message comes only from query params (e.g. after redirect).
+		// The "please log in" hint is rendered by the template itself in the
+		// !loggedIn branch — duplicating it here produced two stacked banners.
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
 		username, loggedIn := h.currentUsername(c)
-		if !loggedIn && message == "" {
-			message = "Please log in to add, edit, or delete posts"
-			isError = true
-		}
 		component := views.PostsPage(posts, h.securityEnabled, loggedIn, username, message, isError)
 		renderHTML(c, http.StatusOK, "posts", component)
 	}
@@ -910,9 +909,39 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-352",
 				OWASP:       "A01:2021",
 				Status:      "ready",
-				Description: "Form POST without anti-CSRF token can be forged cross-origin.",
+				Description: "Form POST without anti-CSRF token can be forged cross-origin. Secure mode adds a global double-submit cookie middleware (bai_csrf) validated as form field or X-CSRF-Token header.",
 				Href:        "/ui/csrf-demo",
 				Payload:     `<form action="/ui/csrf-demo" method="POST"><input name="new_email" value="hacked@evil.com"></form>`,
+			},
+			{
+				Emoji:       "🛠️",
+				Title:       "Security Misconfiguration",
+				CWE:         "CWE-16",
+				OWASP:       "A05:2021",
+				Status:      "ready",
+				Description: "Vulnerable mode: Gin default Recovery leaks stack trace on /debug/crash; no security headers. Secure mode: CSP/HSTS/X-Frame-Options + sanitized 500.",
+				Href:        "/debug/crash",
+				Payload:     `curl -i http://localhost:8080/debug/crash # vuln: full stack trace; secure: {"error":"Internal server error"}`,
+			},
+			{
+				Emoji:       "📂",
+				Title:       "Path Traversal / LFI",
+				CWE:         "CWE-22",
+				OWASP:       "A01:2021",
+				Status:      "ready",
+				Description: "Vulnerable file endpoint joins user input without sanitization. Secure mode rejects `..` and verifies the resolved path stays inside ./uploads.",
+				Href:        "/ui/path-traversal",
+				Payload:     `/api/files-vulnerable?name=../../etc/passwd`,
+			},
+			{
+				Emoji:       "⌨️",
+				Title:       "Command Injection",
+				CWE:         "CWE-78",
+				OWASP:       "A03:2021",
+				Status:      "ready",
+				Description: "Vulnerable ping endpoint runs `sh -c \"ping \" + host`. Secure mode uses exec.Command(\"ping\", \"-c1\", host) + regex whitelist.",
+				Href:        "/ui/cmd-injection",
+				Payload:     `/api/ping-vulnerable?host=8.8.8.8; cat /etc/passwd`,
 			},
 		}
 		component := views.VulnDemosPage(h.securityEnabled, loggedIn, username, demos)
@@ -955,6 +984,19 @@ func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 			"post_id": postID,
 			"body":    body,
 		})
+	}
+}
+
+// DebugCrash deliberately panics so the Security Misconfiguration demo can
+// show how Gin's default Recovery leaks the stack trace in vulnerable mode and
+// how ErrorSanitizerMiddleware swallows it in secure mode.
+func (h *Handler) DebugCrash() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Pretend the user passed bad input that we did not validate. Triggers
+		// a runtime panic with a colourful stack trace.
+		var posts []string
+		_ = posts[42] // index out of range
+		c.JSON(http.StatusOK, gin.H{"unreachable": true})
 	}
 }
 

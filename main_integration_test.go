@@ -91,6 +91,18 @@ func doRequestWithCookie(t *testing.T, router *gin.Engine, method, path, body, c
 	return w
 }
 
+// joinSetCookies turns Set-Cookie response headers into a single value suitable
+// for re-sending as `Cookie: ...` on subsequent requests. Needed since the CSRF
+// middleware sets `bai_csrf` and the login handler sets `bai_auth_user` — a
+// raw Header().Get only returns one of them.
+func joinSetCookies(resp *httptest.ResponseRecorder) string {
+	parts := []string{}
+	for _, c := range resp.Result().Cookies() {
+		parts = append(parts, c.Name+"="+c.Value)
+	}
+	return strings.Join(parts, "; ")
+}
+
 func extractCreatedID(t *testing.T, body []byte) int {
 	t.Helper()
 
@@ -354,7 +366,7 @@ func TestIntegration_DeleteAuthorization_SecurityEnabled(t *testing.T) {
 	if loginUserResp.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, loginUserResp.Code)
 	}
-	userCookie := loginUserResp.Header().Get("Set-Cookie")
+	userCookie := joinSetCookies(loginUserResp)
 	if userCookie == "" {
 		t.Fatalf("expected auth cookie for user")
 	}
@@ -363,7 +375,7 @@ func TestIntegration_DeleteAuthorization_SecurityEnabled(t *testing.T) {
 	if loginAdminResp.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, loginAdminResp.Code)
 	}
-	adminCookie := loginAdminResp.Header().Get("Set-Cookie")
+	adminCookie := joinSetCookies(loginAdminResp)
 	if adminCookie == "" {
 		t.Fatalf("expected auth cookie for admin")
 	}
@@ -561,7 +573,7 @@ func TestIntegration_CreateDeleteRequireLogin_DefaultMode(t *testing.T) {
 	if loginResp.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, loginResp.Code)
 	}
-	cookie := loginResp.Header().Get("Set-Cookie")
+	cookie := joinSetCookies(loginResp)
 	if cookie == "" {
 		t.Fatalf("expected auth cookie after login")
 	}
@@ -583,6 +595,9 @@ func TestIntegration_CreateDeleteRequireLogin_DefaultMode(t *testing.T) {
 const xssScriptPayload = `<script>alert('XSS-' + document.cookie)</script>`
 const xssImgPayload = `<img src=x onerror="alert(1)">`
 
+// postCommentForm POSTs a comment to the post detail page. The comments
+// endpoint is not CSRF-protected globally (upstream's CSRF demo is per-form),
+// so this is a straightforward form POST.
 func postCommentForm(t *testing.T, router *gin.Engine, postID int, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	form := url.Values{}
@@ -594,21 +609,16 @@ func TestIntegration_StoredXSS_VulnerableMode(t *testing.T) {
 	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
 	t.Cleanup(func() { _ = dbConn.Close() })
 
-	// Seed post #1 exists from SeedDB ("Hello World").
 	postID := 1
 
 	t.Run("script_payload_stored_and_rendered_raw", func(t *testing.T) {
+		// POST redirects to /ui/posts/:id; we then GET that page and assert the
+		// raw payload made it into the rendered HTML (vuln mode -> @templ.Raw).
 		resp := postCommentForm(t, router, postID, xssScriptPayload)
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
-		}
-		// Partial response is the comments list — must contain the raw payload
-		// (not escaped) so the browser actually executes it.
-		if !strings.Contains(resp.Body.String(), xssScriptPayload) {
-			t.Fatalf("expected raw <script> tag in vulnerable comments partial; body=%s", resp.Body.String())
+		if resp.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect, got %d (body=%s)", resp.Code, resp.Body.String())
 		}
 
-		// Full page render must also include it raw.
 		page := doRequest(t, router, http.MethodGet, "/ui/posts/view/"+strconv.Itoa(postID), "")
 		if page.Code != http.StatusOK {
 			t.Fatalf("expected 200 on detail page, got %d", page.Code)
@@ -620,11 +630,12 @@ func TestIntegration_StoredXSS_VulnerableMode(t *testing.T) {
 
 	t.Run("img_onerror_payload_stored_and_rendered_raw", func(t *testing.T) {
 		resp := postCommentForm(t, router, postID, xssImgPayload)
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", resp.Code)
+		if resp.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect, got %d", resp.Code)
 		}
-		if !strings.Contains(resp.Body.String(), `onerror="alert(1)"`) {
-			t.Fatalf("expected onerror attribute preserved; body=%s", resp.Body.String())
+		page := doRequest(t, router, http.MethodGet, "/ui/posts/view/"+strconv.Itoa(postID), "")
+		if !strings.Contains(page.Body.String(), `onerror="alert(1)"`) {
+			t.Fatalf("expected onerror attribute preserved on detail page")
 		}
 	})
 }
@@ -637,28 +648,26 @@ func TestIntegration_StoredXSS_SecureMode(t *testing.T) {
 
 	t.Run("script_payload_escaped_or_stripped", func(t *testing.T) {
 		resp := postCommentForm(t, router, postID, xssScriptPayload)
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", resp.Code)
+		if resp.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect, got %d", resp.Code)
 		}
-		body := resp.Body.String()
+		page := doRequest(t, router, http.MethodGet, "/ui/posts/view/"+strconv.Itoa(postID), "")
+		body := page.Body.String()
 		// Must NOT contain a raw executable <script> opener with the payload.
-		if strings.Contains(body, "<script>alert(") {
-			t.Fatalf("secure mode leaked raw <script> tag; body=%s", body)
-		}
-		// Verify the response was rendered (contains the comments-list anchor).
-		if !strings.Contains(body, `id="comments-list"`) {
-			t.Fatalf("expected comments-list in response; body=%s", body)
+		if strings.Contains(body, "<script>alert('XSS-") {
+			t.Fatalf("secure mode leaked raw <script> tag in detail page body")
 		}
 	})
 
 	t.Run("img_onerror_stripped_on_storage", func(t *testing.T) {
 		resp := postCommentForm(t, router, postID, xssImgPayload)
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", resp.Code)
+		if resp.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect, got %d", resp.Code)
 		}
-		body := resp.Body.String()
-		if strings.Contains(body, `onerror=`) {
-			t.Fatalf("secure mode must not preserve onerror= as raw HTML; body=%s", body)
+		page := doRequest(t, router, http.MethodGet, "/ui/posts/view/"+strconv.Itoa(postID), "")
+		body := page.Body.String()
+		if strings.Contains(body, `onerror="alert(1)"`) {
+			t.Fatalf("secure mode must not render raw onerror= attribute on detail page")
 		}
 	})
 
@@ -687,3 +696,96 @@ func TestIntegration_StoredXSS_SecureMode(t *testing.T) {
 
 // io.Discard is referenced indirectly; keep import alive.
 var _ = io.Discard
+
+// ---- Security Misconfiguration ---------------------------------------------
+
+func TestIntegration_SecurityHeaders_VulnerableMode(t *testing.T) {
+	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
+	t.Cleanup(func() { _ = dbConn.Close() })
+
+	resp := doRequest(t, router, http.MethodGet, "/ui/posts", "")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.Code)
+	}
+
+	// In vuln mode none of the defensive headers should be set.
+	for _, h := range []string{
+		"Content-Security-Policy",
+		"Strict-Transport-Security",
+		"X-Frame-Options",
+		"X-Content-Type-Options",
+		"Referrer-Policy",
+		"Permissions-Policy",
+	} {
+		if got := resp.Header().Get(h); got != "" {
+			t.Errorf("vuln mode should NOT set %s, got %q", h, got)
+		}
+	}
+}
+
+func TestIntegration_SecurityHeaders_SecureMode(t *testing.T) {
+	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, true)
+	t.Cleanup(func() { _ = dbConn.Close() })
+
+	resp := doRequest(t, router, http.MethodGet, "/ui/posts", "")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.Code)
+	}
+
+	expectations := map[string]string{
+		"X-Frame-Options":         "DENY",
+		"X-Content-Type-Options":  "nosniff",
+		"Referrer-Policy":         "strict-origin-when-cross-origin",
+		"Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+	}
+	for h, want := range expectations {
+		if got := resp.Header().Get(h); got != want {
+			t.Errorf("expected %s=%q, got %q", h, want, got)
+		}
+	}
+
+	// CSP just needs to be present and contain a few key directives.
+	csp := resp.Header().Get("Content-Security-Policy")
+	for _, expect := range []string{"default-src 'self'", "frame-ancestors 'none'"} {
+		if !strings.Contains(csp, expect) {
+			t.Errorf("CSP missing %q; got: %s", expect, csp)
+		}
+	}
+}
+
+func TestIntegration_DebugCrash_LeaksInVulnerableMode(t *testing.T) {
+	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
+	t.Cleanup(func() { _ = dbConn.Close() })
+
+	resp := doRequest(t, router, http.MethodGet, "/debug/crash", "")
+	if resp.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", resp.Code)
+	}
+	body := resp.Body.String()
+	// Gin's default Recovery returns an empty body but writes a colourful
+	// stack trace to stderr. Either way, the key fact for the demo is that
+	// vuln mode does NOT return a sanitized JSON envelope.
+	if strings.Contains(body, `"error":"Internal server error"`) {
+		t.Fatalf("vuln mode should not return sanitized JSON; got: %s", body)
+	}
+}
+
+func TestIntegration_DebugCrash_SanitizedInSecureMode(t *testing.T) {
+	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, true)
+	t.Cleanup(func() { _ = dbConn.Close() })
+
+	resp := doRequest(t, router, http.MethodGet, "/debug/crash", "")
+	if resp.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", resp.Code)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, `"error":"Internal server error"`) {
+		t.Fatalf("secure mode should return sanitized JSON envelope; got: %s", body)
+	}
+	// Must not leak stack trace fragments.
+	for _, leak := range []string{"goroutine", "panic:", "runtime error", "/internal/handlers/"} {
+		if strings.Contains(body, leak) {
+			t.Errorf("secure mode response should not contain %q; got: %s", leak, body)
+		}
+	}
+}

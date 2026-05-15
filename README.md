@@ -77,7 +77,13 @@ JSON API:
 - `GET /api/search?q=...` — SQL Injection demo, honors `SECURITY_ENABLED`
 - `GET /api/search-vulnerable?q=...` — force-vulnerable SQLi (always concatenated, for side-by-side demo)
 - `POST /api/comments-vulnerable` — force-vulnerable XSS (always stores raw HTML)
+- `POST /api/comments-secure` — sanitized counterpart for the comments demo
 - `GET/POST /csrf-vulnerable-form` — CSRF demo form (no token validation)
+- `GET /debug/crash` — deliberate panic for Security Misconfiguration demo
+- `GET /api/files-vulnerable?name=...` — Path Traversal demo (joins without validation)
+- `GET /api/files-secure?name=...` — Path Traversal secured counterpart
+- `GET /api/ping-vulnerable?host=...` — Command Injection demo (`sh -c ...`)
+- `GET /api/ping-secure?host=...` — Command Injection secured counterpart
 
 UI routes:
 
@@ -90,6 +96,12 @@ UI routes:
 - `GET /ui/register`, `POST /ui/register`
 - `GET /ui/search` — SQL Injection demo with payload hints
 - `GET /ui/vuln-demos` — hub with all vulnerability scenarios (CWE/OWASP labelled)
+- `GET /ui/csrf-demo` — CSRF vulnerable form (no token)
+- `GET /ui/csrf-secure` — CSRF protected form with per-form token
+- `GET /ui/idor-demo` — Broken Access Control demo (IDOR)
+- `GET /ui/db-expose` — Sensitive Data Exposure demo (dumps user table)
+- `GET /ui/path-traversal` — Path Traversal demo page
+- `GET /ui/cmd-injection` — Command Injection demo page
 
 HTMX partials:
 
@@ -182,19 +194,23 @@ Watch during development:
 npm run watch:css
 ```
 
-## Implemented Vulnerabilities (Stage E)
+## Implemented Vulnerabilities (Stage E — complete ✅, with bonuses)
 
-Status board (5 of 7 done for n=3 team):
+**9 vulnerabilities** end-to-end with integration tests. An n=3 team needs 7 (2 mandatory + 5 additional); the last two are extras.
 
-| # | Vulnerability | Status | Demo route |
-|---|---------------|--------|-----------|
-| 1 | SQL Injection | ✅ ready | `/ui/search`, `/api/search-vulnerable` |
-| 2 | Stored XSS | ✅ ready | `/ui/posts/view/3` (Stored XSS demo post) |
-| 3 | Broken Authentication | ✅ ready | `/ui/login` (any password works in vuln mode) |
-| 4 | Broken Access Control | ✅ ready | `/ui/posts` (delete any post in vuln mode) |
-| 5 | Sensitive Data Exposure | ✅ ready | `sqlite> SELECT password_hash FROM users;` |
-| 6 | CSRF | ⏳ vuln only | `/csrf-vulnerable-form` (no token validation in secure yet) |
-| 7 | Security Misconfiguration | 🚧 todo | (no security headers middleware yet) |
+| # | Vulnerability | CWE / OWASP | Demo route |
+|---|---------------|-------------|-----------|
+| 1 | SQL Injection | CWE-89 / A03:2021 | `/ui/search`, `/api/search-vulnerable` |
+| 2 | Stored XSS | CWE-79 / A03:2021 | `/ui/posts/view/1` (seeded XSS comment) |
+| 3 | Broken Authentication | CWE-287 / A07:2021 | `/ui/login` (any password works in vuln mode) |
+| 4 | Broken Access Control | CWE-639 / A01:2021 | `/ui/idor-demo`, `/ui/posts` |
+| 5 | Sensitive Data Exposure | CWE-200 / A02:2021 | `/ui/db-expose`, `sqlite> SELECT password_hash FROM users;` |
+| 6 | CSRF | CWE-352 / A01:2021 | `/ui/csrf-demo` (vuln) vs `/ui/csrf-secure` (per-form token) |
+| 7 | Security Misconfiguration | CWE-16 / A05:2021 | `/debug/crash` (vuln: stack trace; secure: clean 500 + CSP/HSTS) |
+| 8 | Path Traversal / LFI ★ | CWE-22 / A01:2021 | `/api/files-vulnerable?name=../../etc/passwd` vs `/api/files-secure` |
+| 9 | Command Injection ★ | CWE-78 / A03:2021 | `/api/ping-vulnerable?host=8.8.8.8; cat /etc/passwd` vs `/api/ping-secure` |
+
+★ Bonus — above the n=3 requirement.
 
 See `PLAN_IMPLEMENTACJI_PODATNOSCI.md` for full per-vulnerability documentation (description, PoC, before/after diff).
 
@@ -214,10 +230,16 @@ Sprint 3 (vulnerability scenarios + UI polish, 2026-05-03 → 2026-05-08):
 9. UI polish: two-column hero on Login/Register, refactored post cards with `Read more →`, cheat-sheet drawer with filter and 14 sections (SQLi, XSS, IDOR, Path, CmdInj, SSRF, CSRF, Auth, SDE, Misconfig, Upload, Burp, Glossary)
 10. Tailwind config fix — content globs now scan `.go` files (previously only `.templ`/`*_templ.go`), so utility classes referenced from `layout_helpers.go` no longer get purged
 
-## Next Steps
+Sprint 4 (Etap E completion, 2026-05-15) — **Stage E done with bonuses**:
+11. CSRF (Krok 7) — vuln endpoints `/csrf-vulnerable-form` and `/ui/csrf-demo`; secure endpoint `/ui/csrf-secure` with per-form CSRF token (cookie `bai_csrf_token` + hidden `csrf_token` input validated before email update).
+12. Security Misconfiguration (Krok 8) — `SecurityHeadersMiddleware` sets CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy in secure mode. `ErrorSanitizerMiddleware` recovers from panics with a clean JSON 500 (vuln mode keeps the colourful Gin stack trace). New `/debug/crash` endpoint deliberately panics for the side-by-side demo. 4 integration tests.
+13. Bonus: Path Traversal / LFI — `/api/files-vulnerable` joins user input via `filepath.Join("./uploads", name)`; `/api/files-secure` rejects `..` and verifies the resolved path stays under `./uploads`.
+14. Bonus: Command Injection — `/api/ping-vulnerable` runs `sh -c "ping " + host`; `/api/ping-secure` uses `exec.Command("ping","-c1",host)` + a hostname regex whitelist.
+15. Bug fix — `/ui/posts` showed two stacked "log in" banners (template's `if !loggedIn` branch + handler-injected `ResultMessage`). Handler no longer injects the redundant message.
+16. Vuln Demos hub now lists 9 ready scenarios (added CSRF, Security Misconfiguration, Path Traversal, Command Injection cards).
 
-1. **CSRF secure mode** (P1) — middleware generating per-session token, validator for POST/PUT/DELETE, hidden input in UI forms
-2. **Security Misconfiguration** (P2) — middleware setting CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy headers in secure mode + `gin.SetMode("release")`
-3. Add report sections for Broken Auth / BAC / SDE (already implemented, missing the per-vulnerability chapter in `PLAN_IMPLEMENTACJI_PODATNOSCI.md`)
-4. Dry-run defense presentation
-5. Optional: Path Traversal / LFI, Command Injection
+## Next Steps (Stage F — finalization)
+
+1. Add report sections for Broken Auth / BAC / SDE in `PLAN_IMPLEMENTACJI_PODATNOSCI.md` (Krok 3-5 — code is in, prose is not). Krok 1-2 and 6-8 are already documented.
+2. Add report sections for Path Traversal and Command Injection (bonus scenarios — code is in, prose is not yet).
+3. Dry-run defense presentation with a stopwatch — confirm all 9 scenarios run cleanly in ~15 minutes.
