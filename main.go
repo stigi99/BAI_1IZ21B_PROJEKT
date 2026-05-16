@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"BAI_1IZ21B_PROJEKT/internal/config"
 	"BAI_1IZ21B_PROJEKT/internal/db"
@@ -77,6 +78,16 @@ func buildRouter(dbConn *sql.DB) *gin.Engine {
 	router.POST("/ui/partials/login", h.PageLoginPartial())
 	router.POST("/ui/partials/register", h.PageRegisterPartial())
 	router.POST("/ui/partials/search", h.PageSearchPartial())
+	router.POST("/ui/mode/toggle", func(c *gin.Context) {
+		SecurityEnabled = !SecurityEnabled
+		h.SetSecurityEnabled(SecurityEnabled)
+
+		next := c.PostForm("next")
+		if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+			next = "/ui/vuln-demos"
+		}
+		c.Redirect(http.StatusSeeOther, next)
+	})
 
 	// Security demo pages
 	router.GET("/ui/csrf-demo", h.CsrfFormVulnerable())

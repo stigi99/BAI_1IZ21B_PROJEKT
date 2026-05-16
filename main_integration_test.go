@@ -318,6 +318,45 @@ func TestIntegration_UI_LoginPartial(t *testing.T) {
 	})
 }
 
+func TestIntegration_UIModeToggle(t *testing.T) {
+	router, db, _ := setupIntegrationTestAppWithSecurity(t, false)
+	t.Cleanup(func() { _ = db.Close() })
+
+	page := doRequest(t, router, http.MethodGet, "/ui/search", "")
+	if page.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, page.Code)
+	}
+	if !strings.Contains(page.Body.String(), "Vulnerable") || !strings.Contains(page.Body.String(), "↔ Secure") {
+		t.Fatalf("expected vulnerable badge and secure switch button, got: %s", page.Body.String())
+	}
+
+	toggleResp := doFormRequest(t, router, http.MethodPost, "/ui/mode/toggle", "next=%2Fui%2Fsearch")
+	if toggleResp.Code != http.StatusSeeOther {
+		t.Fatalf("expected status %d, got %d", http.StatusSeeOther, toggleResp.Code)
+	}
+	if location := toggleResp.Header().Get("Location"); location != "/ui/search" {
+		t.Fatalf("expected redirect back to /ui/search, got %q", location)
+	}
+
+	securePage := doRequest(t, router, http.MethodGet, "/ui/search", "")
+	if securePage.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, securePage.Code)
+	}
+	if !strings.Contains(securePage.Body.String(), "Secure") || !strings.Contains(securePage.Body.String(), "↔ Vulnerable") {
+		t.Fatalf("expected secure badge and vulnerable switch button, got: %s", securePage.Body.String())
+	}
+
+	payload := url.QueryEscape("' OR 1=1 --")
+	searchResp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+	if searchResp.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, searchResp.Code)
+	}
+	results := decodeSearchResults(t, searchResp.Body.Bytes())
+	if len(results) != 0 {
+		t.Fatalf("expected secure search after toggle to block SQLi, got %d results", len(results))
+	}
+}
+
 func TestIntegration_Register(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -576,6 +615,16 @@ func TestIntegration_CreateDeleteRequireLogin_DefaultMode(t *testing.T) {
 	if unauthDeleteResp.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, unauthDeleteResp.Code)
 	}
+
+	unauthUpdateResp := doRequest(t, router, http.MethodPut, "/posts/"+strconv.Itoa(createdID), `{"title":"updated","post_content":"changed","published":1}`)
+	if unauthUpdateResp.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, unauthUpdateResp.Code)
+	}
+
+	authUpdateResp := doRequestWithCookie(t, router, http.MethodPut, "/posts/"+strconv.Itoa(createdID), `{"title":"updated","post_content":"changed","published":1}`, cookie)
+	if authUpdateResp.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, authUpdateResp.Code)
+	}
 }
 
 // ---- Stored XSS demo --------------------------------------------------------
@@ -681,6 +730,64 @@ func TestIntegration_StoredXSS_SecureMode(t *testing.T) {
 		}
 		if stored != xssScriptPayload {
 			t.Fatalf("force-vulnerable should preserve payload verbatim; got %q", stored)
+		}
+	})
+}
+
+func TestIntegration_PathTraversal_LFI(t *testing.T) {
+	t.Run("vulnerable endpoint reads outside uploads", func(t *testing.T) {
+		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
+		t.Cleanup(func() { _ = dbConn.Close() })
+
+		resp := doRequest(t, router, http.MethodGet, "/api/files-vulnerable?name=../go.mod", "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d (body=%s)", http.StatusOK, resp.Code, resp.Body.String())
+		}
+		if !strings.Contains(resp.Body.String(), "module BAI_1IZ21B_PROJEKT") {
+			t.Fatalf("expected vulnerable endpoint to read go.mod, got: %s", resp.Body.String())
+		}
+	})
+
+	t.Run("secure endpoint blocks traversal", func(t *testing.T) {
+		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, true)
+		t.Cleanup(func() { _ = dbConn.Close() })
+
+		resp := doRequest(t, router, http.MethodGet, "/api/files-secure?name=../go.mod", "")
+		if resp.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d (body=%s)", http.StatusBadRequest, resp.Code, resp.Body.String())
+		}
+		if !strings.Contains(resp.Body.String(), "path traversal detected") {
+			t.Fatalf("expected traversal block message, got: %s", resp.Body.String())
+		}
+	})
+}
+
+func TestIntegration_CommandInjection(t *testing.T) {
+	t.Run("vulnerable endpoint executes appended shell command", func(t *testing.T) {
+		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
+		t.Cleanup(func() { _ = dbConn.Close() })
+
+		payload := url.QueryEscape("127.0.0.1; echo BAI_CMD_INJECTION")
+		resp := doRequest(t, router, http.MethodGet, "/api/ping-vulnerable?host="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, resp.Code)
+		}
+		if !strings.Contains(resp.Body.String(), "BAI_CMD_INJECTION") {
+			t.Fatalf("expected injected command output, got: %s", resp.Body.String())
+		}
+	})
+
+	t.Run("secure endpoint rejects shell metacharacters", func(t *testing.T) {
+		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, true)
+		t.Cleanup(func() { _ = dbConn.Close() })
+
+		payload := url.QueryEscape("127.0.0.1; echo BAI_CMD_INJECTION")
+		resp := doRequest(t, router, http.MethodGet, "/api/ping-secure?host="+payload, "")
+		if resp.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d (body=%s)", http.StatusBadRequest, resp.Code, resp.Body.String())
+		}
+		if !strings.Contains(resp.Body.String(), "invalid host") {
+			t.Fatalf("expected invalid host message, got: %s", resp.Body.String())
 		}
 	})
 }

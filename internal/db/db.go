@@ -2,8 +2,10 @@ package db
 
 import (
 	"database/sql"
+	"html"
 	"log"
 	"os"
+	"regexp"
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
@@ -13,6 +15,12 @@ const (
 	fallbackAdminUsername = "admin"
 	fallbackAdminPassword = "admin"
 	fallbackAdminEmail    = "admin@example.com"
+)
+
+var (
+	seedScriptTagRE        = regexp.MustCompile(`(?i)</?\s*script[^>]*>`)
+	seedEventAttributeRE   = regexp.MustCompile(`(?i)\s+on[a-z0-9_-]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)`)
+	seedJavascriptSchemeRE = regexp.MustCompile(`(?i)javascript\s*:`)
 )
 
 func seededAdminCredentials() (username, password, email string) {
@@ -140,6 +148,7 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 		// the demo works out of the box. In secure mode the body is HTML-escaped
 		// before storage, so the script tag is inert.
 		xssBody := `<img src=x onerror="alert('Stored XSS! cookie='+document.cookie)"> — demo payload`
+		xssBody = encodeCommentForSeed(xssBody, securityEnabled)
 		if _, err := db.Exec(
 			"INSERT INTO comments (post_id, author, body) VALUES (1, 'attacker', ?)",
 			xssBody,
@@ -200,4 +209,14 @@ func encodePasswordForSeed(password string, securityEnabled bool) string {
 		return password
 	}
 	return string(hash)
+}
+
+func encodeCommentForSeed(body string, securityEnabled bool) string {
+	if !securityEnabled {
+		return body
+	}
+	cleaned := seedScriptTagRE.ReplaceAllString(body, "")
+	cleaned = seedEventAttributeRE.ReplaceAllString(cleaned, "")
+	cleaned = seedJavascriptSchemeRE.ReplaceAllString(cleaned, "")
+	return html.EscapeString(cleaned)
 }

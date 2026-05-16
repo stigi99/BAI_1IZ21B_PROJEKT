@@ -78,6 +78,8 @@ JSON API:
 - `GET /api/search-vulnerable?q=...` — force-vulnerable SQLi (always concatenated, for side-by-side demo)
 - `POST /api/comments-vulnerable` — force-vulnerable XSS (always stores raw HTML)
 - `GET/POST /csrf-vulnerable-form` — CSRF demo form (no token validation)
+- `GET /api/files-vulnerable?name=...`, `GET /api/files-secure?name=...` — Path Traversal / LFI demo
+- `GET /api/ping-vulnerable?host=...`, `GET /api/ping-secure?host=...` — Command Injection demo
 
 UI routes:
 
@@ -89,6 +91,11 @@ UI routes:
 - `GET /ui/login`, `POST /ui/login`
 - `GET /ui/register`, `POST /ui/register`
 - `GET /ui/search` — SQL Injection demo with payload hints
+- `GET /ui/csrf-demo`, `GET /ui/csrf-secure` — CSRF vulnerable/secure comparison
+- `GET /ui/idor-demo` — Broken Access Control / IDOR demo
+- `GET /ui/db-expose` — Sensitive Data Exposure demo
+- `GET /ui/path-traversal` — Path Traversal / LFI demo
+- `GET /ui/cmd-injection` — Command Injection demo
 - `GET /ui/vuln-demos` — hub with all vulnerability scenarios (CWE/OWASP labelled)
 
 HTMX partials:
@@ -124,6 +131,28 @@ The application uses a global flag named `SecurityEnabled` in [main.go](main.go)
 - When `SecurityEnabled` is `true`, the code is meant to enforce secure handling such as authentication checks, password verification, and stronger input validation.
 
 In the current codebase, this flag acts as the central switch for the lab scenario. It makes it easy to compare insecure and secure behaviour in one project without changing the API shape.
+
+The UI header includes a runtime toggle button:
+
+- vulnerable mode shows `Vulnerable` and a `↔ Secure` button
+- secure mode shows `Secure` and a `↔ Vulnerable` button
+
+The button posts to `POST /ui/mode/toggle`, updates the global handler/service mode, and redirects back to the current page. For storage-dependent demos such as plaintext-vs-bcrypt password storage, use a fresh database/restart when you need a clean seed comparison.
+
+## Demo Screenshots
+
+Evidence screenshots are stored under `docs/screenshots/`:
+
+| File | What it shows |
+|------|---------------|
+| `01-vuln-demos-vulnerable.jpg` | Vulnerability hub in vulnerable mode |
+| `02-sqli-vulnerable-results.jpg` | SQL Injection payload returning vulnerable results |
+| `03-path-traversal-vulnerable.jpg` | Path Traversal reading outside `uploads` |
+| `04-command-injection-vulnerable.jpg` | Command Injection executing extra shell input |
+| `05-vuln-demos-secure-after-toggle.jpg` | Same hub after using the header toggle |
+| `06-sqli-secure-blocked.jpg` | SQL Injection blocked by prepared statements |
+| `07-path-traversal-secure-blocked.jpg` | Path Traversal blocked by path validation |
+| `08-command-injection-secure-blocked.jpg` | Command Injection blocked by host validation/no shell |
 
 ## Admin Account Bootstrap
 
@@ -184,17 +213,20 @@ npm run watch:css
 
 ## Implemented Vulnerabilities (Stage E)
 
-Status board (5 of 7 done for n=3 team):
+Final scope for **n=2** is 2 mandatory vulnerabilities + 3 required extras, with 3 additional bonus demos that fit the app naturally.
 
 | # | Vulnerability | Status | Demo route |
 |---|---------------|--------|-----------|
 | 1 | SQL Injection | ✅ ready | `/ui/search`, `/api/search-vulnerable` |
-| 2 | Stored XSS | ✅ ready | `/ui/posts/view/3` (Stored XSS demo post) |
+| 2 | Stored XSS | ✅ ready | `/ui/posts/view/1` (comments) |
 | 3 | Broken Authentication | ✅ ready | `/ui/login` (any password works in vuln mode) |
-| 4 | Broken Access Control | ✅ ready | `/ui/posts` (delete any post in vuln mode) |
-| 5 | Sensitive Data Exposure | ✅ ready | `sqlite> SELECT password_hash FROM users;` |
-| 6 | CSRF | ⏳ vuln only | `/csrf-vulnerable-form` (no token validation in secure yet) |
-| 7 | Security Misconfiguration | 🚧 todo | (no security headers middleware yet) |
+| 4 | Broken Access Control | ✅ ready | `/ui/idor-demo` (delete another user's post in vuln mode) |
+| 5 | CSRF | ✅ ready | `/ui/csrf-demo`, `/ui/csrf-secure` |
+| 6 | Sensitive Data Exposure | ✅ bonus | `/ui/db-expose`, `sqlite> SELECT password_hash FROM users;` |
+| 7 | Path Traversal / LFI | ✅ bonus | `/ui/path-traversal`, `/api/files-vulnerable`, `/api/files-secure` |
+| 8 | Command Injection | ✅ bonus | `/ui/cmd-injection`, `/api/ping-vulnerable`, `/api/ping-secure` |
+
+Security Misconfiguration remains a possible extra item, but it is not needed for the chosen n=2 scope.
 
 See `PLAN_IMPLEMENTACJI_PODATNOSCI.md` for full per-vulnerability documentation (description, PoC, before/after diff).
 
@@ -216,8 +248,6 @@ Sprint 3 (vulnerability scenarios + UI polish, 2026-05-03 → 2026-05-08):
 
 ## Next Steps
 
-1. **CSRF secure mode** (P1) — middleware generating per-session token, validator for POST/PUT/DELETE, hidden input in UI forms
-2. **Security Misconfiguration** (P2) — middleware setting CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy headers in secure mode + `gin.SetMode("release")`
-3. Add report sections for Broken Auth / BAC / SDE (already implemented, missing the per-vulnerability chapter in `PLAN_IMPLEMENTACJI_PODATNOSCI.md`)
-4. Dry-run defense presentation
-5. Optional: Path Traversal / LFI, Command Injection
+1. Run one full live-demo rehearsal: attack in vulnerable mode -> repeat in secure mode -> show code difference.
+2. Export/attach the screenshots from `docs/screenshots/` to the final submission package.
+3. Optionally add Security Misconfiguration only if there is extra time after the report and rehearsal.

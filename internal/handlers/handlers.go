@@ -25,11 +25,11 @@ import (
 )
 
 const (
-	authCookieName  = "bai_auth_user"
-	csrfCookieName  = "bai_csrf_token"
-	uploadsDir      = "./uploads"
-	uploadsURLPath  = "/uploads"
-	maxUploadBytes  = 5 << 20 // 5 MiB
+	authCookieName = "bai_auth_user"
+	csrfCookieName = "bai_csrf_token"
+	uploadsDir     = "./uploads"
+	uploadsURLPath = "/uploads"
+	maxUploadBytes = 5 << 20 // 5 MiB
 	// sessionSecret is used to HMAC-sign the auth cookie in secure mode.
 	// In a production system this must come from a securely stored secret.
 	sessionSecret = "bai-lab-demo-secret-do-not-use-in-prod"
@@ -42,6 +42,11 @@ type Handler struct {
 
 func New(svc *service.Service, securityEnabled bool) *Handler {
 	return &Handler{svc: svc, securityEnabled: securityEnabled}
+}
+
+func (h *Handler) SetSecurityEnabled(enabled bool) {
+	h.securityEnabled = enabled
+	h.svc.SetSecurityEnabled(enabled)
 }
 
 func renderHTML(c *gin.Context, status int, pageName string, component templ.Component) {
@@ -257,6 +262,10 @@ func (h *Handler) PostUpdate() gin.HandlerFunc {
 
 		if req.Title == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "title is required"})
+			return
+		}
+
+		if !h.requireLoginJSON(c) {
 			return
 		}
 
@@ -914,6 +923,26 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				Href:        "/ui/csrf-demo",
 				Payload:     `<form action="/ui/csrf-demo" method="POST"><input name="new_email" value="hacked@evil.com"></form>`,
 			},
+			{
+				Emoji:       "📂",
+				Title:       "Path Traversal / LFI",
+				CWE:         "CWE-22",
+				OWASP:       "A01:2021",
+				Status:      "ready",
+				Description: "Vulnerable mode concatenates a filename under ./uploads, letting ../ escape the directory. Secure mode canonicalizes and rejects traversal.",
+				Href:        "/ui/path-traversal",
+				Payload:     `GET /api/files-vulnerable?name=../go.mod`,
+			},
+			{
+				Emoji:       "💻",
+				Title:       "Command Injection",
+				CWE:         "CWE-78",
+				OWASP:       "A03:2021",
+				Status:      "ready",
+				Description: "Vulnerable mode passes host into sh -c, so shell metacharacters execute extra commands. Secure mode validates host and avoids the shell.",
+				Href:        "/ui/cmd-injection",
+				Payload:     `GET /api/ping-vulnerable?host=127.0.0.1; whoami`,
+			},
 		}
 		component := views.VulnDemosPage(h.securityEnabled, loggedIn, username, demos)
 		renderHTML(c, http.StatusOK, "vuln_demos", component)
@@ -1098,7 +1127,14 @@ func (h *Handler) PagePostCommentSubmit() gin.HandlerFunc {
 			return
 		}
 
-		c.Redirect(http.StatusSeeOther, fmt.Sprintf("/ui/posts/%d?msg=Comment+added", id))
+		comments, err := h.svc.GetCommentsByPostID(id)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to load comments")
+			return
+		}
+
+		component := views.CommentsList(comments, h.securityEnabled)
+		renderHTML(c, http.StatusOK, "comments_list", component)
 	}
 }
 
@@ -1237,10 +1273,8 @@ func (h *Handler) FilesSecure() gin.HandlerFunc {
 			return
 		}
 
-		// Secure: canonicalize and verify the path stays within uploadsDir.
-		base, _ := filepath.Abs(uploadsDir)
-		candidate := filepath.Join(base, filepath.Clean("/"+name))
-		if !strings.HasPrefix(candidate, base+string(filepath.Separator)) && candidate != base {
+		candidate, ok := safeUploadPath(name)
+		if !ok {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":  "path traversal detected — access denied",
 				"detail": "resolved path escapes the uploads directory",
@@ -1257,6 +1291,28 @@ func (h *Handler) FilesSecure() gin.HandlerFunc {
 		c.Header("Content-Type", "text/plain; charset=utf-8")
 		c.String(http.StatusOK, string(data))
 	}
+}
+
+func safeUploadPath(name string) (string, bool) {
+	if filepath.IsAbs(name) {
+		return "", false
+	}
+
+	cleaned := filepath.Clean(name)
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+
+	base, err := filepath.Abs(uploadsDir)
+	if err != nil {
+		return "", false
+	}
+	candidate := filepath.Join(base, cleaned)
+	if !strings.HasPrefix(candidate, base+string(filepath.Separator)) && candidate != base {
+		return "", false
+	}
+
+	return candidate, true
 }
 
 // PagePathTraversal renders the Path Traversal / LFI demo page.
@@ -1288,9 +1344,8 @@ func (h *Handler) PagePathTraversal() gin.HandlerFunc {
 					}
 				}
 			} else {
-				base, _ := filepath.Abs(uploadsDir)
-				candidate := filepath.Join(base, filepath.Clean("/"+filename))
-				if !strings.HasPrefix(candidate, base+string(filepath.Separator)) && candidate != base {
+				candidate, ok := safeUploadPath(filename)
+				if !ok {
 					message = "⛔ Path traversal blocked: resolved path escapes the uploads directory"
 					isError = true
 				} else {
@@ -1321,20 +1376,20 @@ var validHostRE = regexp.MustCompile(`^[a-zA-Z0-9.\-]+$`)
 //
 // Example exploit: /api/ping-vulnerable?host=8.8.8.8+;+cat+/etc/passwd
 func (h *Handler) PingVulnerable() gin.HandlerFunc {
-return func(c *gin.Context) {
-host := c.Query("host")
-if host == "" {
-c.JSON(http.StatusBadRequest, gin.H{"error": "host parameter required"})
-return
-}
+	return func(c *gin.Context) {
+		host := c.Query("host")
+		if host == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "host parameter required"})
+			return
+		}
 
-// VULNERABLE: no input validation — shell metacharacters execute.
-cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
-out, _ := cmd.CombinedOutput()
+		// VULNERABLE: no input validation — shell metacharacters execute.
+		cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
+		out, _ := cmd.CombinedOutput()
 
-c.Header("Content-Type", "text/plain; charset=utf-8")
-c.String(http.StatusOK, string(out))
-}
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.String(http.StatusOK, string(out))
+	}
 }
 
 // PingSecure runs ping after validating that the host contains only safe characters.
@@ -1342,62 +1397,62 @@ c.String(http.StatusOK, string(out))
 //
 // Example (blocked): /api/ping-secure?host=8.8.8.8+;+cat+/etc/passwd → 400
 func (h *Handler) PingSecure() gin.HandlerFunc {
-return func(c *gin.Context) {
-host := c.Query("host")
-if host == "" {
-c.JSON(http.StatusBadRequest, gin.H{"error": "host parameter required"})
-return
-}
+	return func(c *gin.Context) {
+		host := c.Query("host")
+		if host == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "host parameter required"})
+			return
+		}
 
-// Secure: reject input that contains shell metacharacters.
-if !validHostRE.MatchString(host) {
-c.JSON(http.StatusBadRequest, gin.H{
-"error":  "invalid host: only [a-zA-Z0-9.-] allowed",
-"detail": "shell metacharacters (;, &, |, $, `, etc.) are rejected",
-})
-return
-}
+		// Secure: reject input that contains shell metacharacters.
+		if !validHostRE.MatchString(host) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":  "invalid host: only [a-zA-Z0-9.-] allowed",
+				"detail": "shell metacharacters (;, &, |, $, `, etc.) are rejected",
+			})
+			return
+		}
 
-out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
-c.Header("Content-Type", "text/plain; charset=utf-8")
-c.String(http.StatusOK, string(out))
-}
+		out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.String(http.StatusOK, string(out))
+	}
 }
 
 // PageCmdInjection renders the Command Injection demo page.
 // When a host query parameter is present it runs the ping and shows the output.
 func (h *Handler) PageCmdInjection() gin.HandlerFunc {
-return func(c *gin.Context) {
-username, loggedIn := h.currentUsername(c)
-host := c.Query("host")
-var output, message string
-isError := false
+	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
+		host := c.Query("host")
+		var output, message string
+		isError := false
 
-if host != "" {
-if !h.securityEnabled {
-// VULNERABLE mode: run via shell — command injection possible.
-cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
-out, _ := cmd.CombinedOutput()
-output = string(out)
-if len(output) > 4096 {
-output = output[:4096] + "\n... (truncated)"
-}
-} else {
-// Secure mode: validate first, then invoke without a shell.
-if !validHostRE.MatchString(host) {
-message = "⛔ Command injection blocked: host contains disallowed characters — only [a-zA-Z0-9.-] are permitted"
-isError = true
-} else {
-out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
-output = string(out)
-if len(output) > 4096 {
-output = output[:4096] + "\n... (truncated)"
-}
-}
-}
-}
+		if host != "" {
+			if !h.securityEnabled {
+				// VULNERABLE mode: run via shell — command injection possible.
+				cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
+				out, _ := cmd.CombinedOutput()
+				output = string(out)
+				if len(output) > 4096 {
+					output = output[:4096] + "\n... (truncated)"
+				}
+			} else {
+				// Secure mode: validate first, then invoke without a shell.
+				if !validHostRE.MatchString(host) {
+					message = "⛔ Command injection blocked: host contains disallowed characters — only [a-zA-Z0-9.-] are permitted"
+					isError = true
+				} else {
+					out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
+					output = string(out)
+					if len(output) > 4096 {
+						output = output[:4096] + "\n... (truncated)"
+					}
+				}
+			}
+		}
 
-component := views.CmdInjectionPage(h.securityEnabled, loggedIn, username, host, output, message, isError)
-renderHTML(c, http.StatusOK, "cmd_injection", component)
-}
+		component := views.CmdInjectionPage(h.securityEnabled, loggedIn, username, host, output, message, isError)
+		renderHTML(c, http.StatusOK, "cmd_injection", component)
+	}
 }

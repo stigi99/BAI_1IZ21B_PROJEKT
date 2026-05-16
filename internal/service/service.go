@@ -3,6 +3,7 @@ package service
 import (
 	"database/sql"
 	"html"
+	"regexp"
 	"sync"
 	"time"
 
@@ -62,8 +63,18 @@ type Post struct {
 	AttachmentName string `json:"attachment_name,omitempty"`
 }
 
+var (
+	scriptTagRE        = regexp.MustCompile(`(?i)</?\s*script[^>]*>`)
+	eventAttributeRE   = regexp.MustCompile(`(?i)\s+on[a-z0-9_-]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)`)
+	javascriptSchemeRE = regexp.MustCompile(`(?i)javascript\s*:`)
+)
+
 func New(db *sql.DB, securityEnabled bool) *Service {
 	return &Service{db: db, securityEnabled: securityEnabled, rl: newRateLimiter()}
+}
+
+func (s *Service) SetSecurityEnabled(enabled bool) {
+	s.securityEnabled = enabled
 }
 
 func (s *Service) GetPublishedPosts() ([]Post, error) {
@@ -154,7 +165,7 @@ func (s *Service) SearchPosts(query string) ([]Post, error) {
 //
 // Example payloads:
 //   - `' OR 1=1 --`   → returns every row (drafts included)
-//   - `' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --`
+//   - `' UNION SELECT id, username, password_hash, 1, ”, ”, ” FROM users --`
 //     → leaks credentials through the title/content columns
 func (s *Service) SearchPostsVulnerable(query string) ([]Post, error) {
 	// VULNERABLE: direct string concatenation into the SQL statement.
@@ -358,7 +369,7 @@ func (s *Service) IsUserAdmin(username string) (bool, error) {
 func (s *Service) CreateComment(postID int, author, body string) (int64, error) {
 	stored := body
 	if s.securityEnabled {
-		stored = html.EscapeString(body)
+		stored = html.EscapeString(stripUnsafeHTML(body))
 	}
 	res, err := s.db.Exec(
 		"INSERT INTO comments (post_id, author, body) VALUES (?, ?, ?)",
@@ -368,6 +379,13 @@ func (s *Service) CreateComment(postID int, author, body string) (int64, error) 
 		return 0, err
 	}
 	return res.LastInsertId()
+}
+
+func stripUnsafeHTML(body string) string {
+	cleaned := scriptTagRE.ReplaceAllString(body, "")
+	cleaned = eventAttributeRE.ReplaceAllString(cleaned, "")
+	cleaned = javascriptSchemeRE.ReplaceAllString(cleaned, "")
+	return cleaned
 }
 
 // CreateCommentVulnerable always stores the body verbatim, regardless of the

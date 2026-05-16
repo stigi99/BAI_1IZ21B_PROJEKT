@@ -116,12 +116,12 @@ func Layout(title string, securityEnabled bool, loggedIn bool, username string) 
 			return templ_7745c5c3_Err
 		}
 		if securityEnabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span class=\"inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-gradient-to-r from-emerald-400 to-cyan-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-cyan-200\">🛡️ Secure</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span class=\"inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-gradient-to-r from-emerald-400 to-cyan-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-cyan-200\">🛡️ Secure</span><form method=\"post\" action=\"/ui/mode/toggle\" class=\"inline-flex\"><input type=\"hidden\" name=\"next\" value=\"\"> <button type=\"submit\" onclick=\"this.form.elements.next.value = window.location.pathname + window.location.search\" class=\"inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white/90 px-3 py-1 text-xs font-bold text-rose-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-50\" title=\"Switch this running demo server to vulnerable mode\">↔ Vulnerable</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<span class=\"inline-flex items-center gap-1 rounded-full border border-rose-200 bg-gradient-to-r from-rose-400 to-orange-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-rose-200\">⚠️ Vulnerable</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<span class=\"inline-flex items-center gap-1 rounded-full border border-rose-200 bg-gradient-to-r from-rose-400 to-orange-400 px-3 py-1 text-xs font-bold text-white shadow-sm shadow-rose-200\">⚠️ Vulnerable</span><form method=\"post\" action=\"/ui/mode/toggle\" class=\"inline-flex\"><input type=\"hidden\" name=\"next\" value=\"\"> <button type=\"submit\" onclick=\"this.form.elements.next.value = window.location.pathname + window.location.search\" class=\"inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-white/90 px-3 py-1 text-xs font-bold text-cyan-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-cyan-50\" title=\"Switch this running demo server to secure mode\">↔ Secure</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -181,7 +181,7 @@ func PostsList(posts []service.Post, canEdit bool) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 262, Col: 120}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 274, Col: 120}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -194,7 +194,7 @@ func PostsList(posts []service.Post, canEdit bool) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", p.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 263, Col: 80}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 275, Col: 80}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -212,7 +212,7 @@ func PostsList(posts []service.Post, canEdit bool) templ.Component {
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(p.Author)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 265, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 277, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -245,7 +245,7 @@ func PostsList(posts []service.Post, canEdit bool) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(p.PostContent)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 279, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 291, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -263,7 +263,7 @@ func PostsList(posts []service.Post, canEdit bool) templ.Component {
 					var templ_7745c5c3_Var12 templ.SafeURL
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(p.AttachmentPath))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 282, Col: 48}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 294, Col: 48}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -281,7 +281,7 @@ func PostsList(posts []service.Post, canEdit bool) templ.Component {
 						var templ_7745c5c3_Var13 string
 						templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(p.AttachmentName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 285, Col: 33}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 297, Col: 33}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 						if templ_7745c5c3_Err != nil {
@@ -310,7 +310,7 @@ func PostsList(posts []service.Post, canEdit bool) templ.Component {
 					var templ_7745c5c3_Var14 templ.SafeURL
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", p.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 294, Col: 221}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 306, Col: 221}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -323,7 +323,7 @@ func PostsList(posts []service.Post, canEdit bool) templ.Component {
 					var templ_7745c5c3_Var15 templ.SafeURL
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/ui/posts/delete/%d", p.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 297, Col: 91}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 309, Col: 91}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -470,7 +470,7 @@ func ResultMessage(message string, isError bool) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 336, Col: 19}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 348, Col: 19}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -488,7 +488,7 @@ func ResultMessage(message string, isError bool) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 341, Col: 19}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 353, Col: 19}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -549,7 +549,7 @@ func PostsPage(posts []service.Post, securityEnabled bool, loggedIn bool, userna
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 358, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 370, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -815,7 +815,7 @@ func SearchResults(query string, posts []service.Post, message string, isError b
 			var templ_7745c5c3_Var30 string
 			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(posts)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 536, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 548, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 			if templ_7745c5c3_Err != nil {
@@ -828,7 +828,7 @@ func SearchResults(query string, posts []service.Post, message string, isError b
 			var templ_7745c5c3_Var31 string
 			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(query)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 536, Col: 151}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 548, Col: 151}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
@@ -863,7 +863,7 @@ func SearchResults(query string, posts []service.Post, message string, isError b
 			var templ_7745c5c3_Var32 string
 			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 550, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 562, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
@@ -891,7 +891,7 @@ func SearchResults(query string, posts []service.Post, message string, isError b
 			var templ_7745c5c3_Var33 string
 			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", p.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 557, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 569, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 			if templ_7745c5c3_Err != nil {
@@ -909,7 +909,7 @@ func SearchResults(query string, posts []service.Post, message string, isError b
 				var templ_7745c5c3_Var34 string
 				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(p.Author)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 559, Col: 69}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 571, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 				if templ_7745c5c3_Err != nil {
@@ -927,7 +927,7 @@ func SearchResults(query string, posts []service.Post, message string, isError b
 			var templ_7745c5c3_Var35 string
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(p.PostContent)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 562, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 574, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 			if templ_7745c5c3_Err != nil {
@@ -986,7 +986,7 @@ func SearchPage(securityEnabled bool, loggedIn bool, username string, query stri
 			var templ_7745c5c3_Var38 string
 			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(query)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 587, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 599, Col: 50}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 			if templ_7745c5c3_Err != nil {
@@ -1064,7 +1064,7 @@ func EditPostPage(securityEnabled bool, loggedIn bool, username string, post ser
 			var templ_7745c5c3_Var41 templ.SafeURL
 			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/ui/posts/edit/%d", post.ID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 646, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 658, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 			if templ_7745c5c3_Err != nil {
@@ -1077,7 +1077,7 @@ func EditPostPage(securityEnabled bool, loggedIn bool, username string, post ser
 			var templ_7745c5c3_Var42 string
 			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(post.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 649, Col: 231}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 661, Col: 231}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 			if templ_7745c5c3_Err != nil {
@@ -1090,7 +1090,7 @@ func EditPostPage(securityEnabled bool, loggedIn bool, username string, post ser
 			var templ_7745c5c3_Var43 string
 			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(post.PostContent)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 653, Col: 276}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 665, Col: 276}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 			if templ_7745c5c3_Err != nil {
@@ -1108,7 +1108,7 @@ func EditPostPage(securityEnabled bool, loggedIn bool, username string, post ser
 				var templ_7745c5c3_Var44 templ.SafeURL
 				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(post.AttachmentPath))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 658, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 670, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 				if templ_7745c5c3_Err != nil {
@@ -1126,7 +1126,7 @@ func EditPostPage(securityEnabled bool, loggedIn bool, username string, post ser
 					var templ_7745c5c3_Var45 string
 					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(post.AttachmentName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 661, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 673, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 					if templ_7745c5c3_Err != nil {
@@ -1274,7 +1274,7 @@ func VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos [
 				var templ_7745c5c3_Var49 templ.SafeURL
 				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(d.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 726, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 738, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 				if templ_7745c5c3_Err != nil {
@@ -1287,7 +1287,7 @@ func VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos [
 				var templ_7745c5c3_Var50 string
 				templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(d.Emoji)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 729, Col: 40}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 741, Col: 40}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 				if templ_7745c5c3_Err != nil {
@@ -1300,7 +1300,7 @@ func VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos [
 				var templ_7745c5c3_Var51 string
 				templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(d.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 730, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 742, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 				if templ_7745c5c3_Err != nil {
@@ -1326,7 +1326,7 @@ func VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos [
 					var templ_7745c5c3_Var52 string
 					templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(d.CWE)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 736, Col: 64}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 748, Col: 64}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 					if templ_7745c5c3_Err != nil {
@@ -1345,7 +1345,7 @@ func VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos [
 					var templ_7745c5c3_Var53 string
 					templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(d.OWASP)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 739, Col: 66}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 751, Col: 66}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 					if templ_7745c5c3_Err != nil {
@@ -1363,7 +1363,7 @@ func VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos [
 				var templ_7745c5c3_Var54 string
 				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(d.Description)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 742, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 754, Col: 76}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 				if templ_7745c5c3_Err != nil {
@@ -1381,7 +1381,7 @@ func VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos [
 					var templ_7745c5c3_Var55 string
 					templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(d.Payload)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 744, Col: 112}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 756, Col: 112}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 					if templ_7745c5c3_Err != nil {
@@ -1454,7 +1454,7 @@ func PostDetailPage(post service.Post, comments []service.Comment, securityEnabl
 			var templ_7745c5c3_Var58 string
 			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(post.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 766, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 778, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 			if templ_7745c5c3_Err != nil {
@@ -1482,7 +1482,7 @@ func PostDetailPage(post service.Post, comments []service.Comment, securityEnabl
 			var templ_7745c5c3_Var59 string
 			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", post.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 774, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 786, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 			if templ_7745c5c3_Err != nil {
@@ -1500,7 +1500,7 @@ func PostDetailPage(post service.Post, comments []service.Comment, securityEnabl
 				var templ_7745c5c3_Var60 string
 				templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(post.Author)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 776, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 788, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 				if templ_7745c5c3_Err != nil {
@@ -1518,7 +1518,7 @@ func PostDetailPage(post service.Post, comments []service.Comment, securityEnabl
 			var templ_7745c5c3_Var61 string
 			templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(post.PostContent)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 779, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 791, Col: 64}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 			if templ_7745c5c3_Err != nil {
@@ -1536,7 +1536,7 @@ func PostDetailPage(post service.Post, comments []service.Comment, securityEnabl
 				var templ_7745c5c3_Var62 templ.SafeURL
 				templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(post.AttachmentPath))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 782, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 794, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 				if templ_7745c5c3_Err != nil {
@@ -1549,7 +1549,7 @@ func PostDetailPage(post service.Post, comments []service.Comment, securityEnabl
 				var templ_7745c5c3_Var63 string
 				templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(post.AttachmentName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 783, Col: 33}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 795, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
 				if templ_7745c5c3_Err != nil {
@@ -1585,149 +1585,199 @@ func PostDetailPage(post service.Post, comments []service.Comment, securityEnabl
 					return templ_7745c5c3_Err
 				}
 			}
-			if len(comments) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "<p class=\"text-sm text-slate-500\">No comments yet. Be the first!</p>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			for _, c := range comments {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "<div class=\"rounded-xl border border-slate-100 bg-slate-50 p-4\"><p class=\"text-xs font-semibold text-fuchsia-700 mb-1\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var64 string
-				templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(c.Author)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 810, Col: 71}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, " <span class=\"text-slate-400 font-normal\">• ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var65 string
-				templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(c.CreatedAt)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 810, Col: 132}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "</span></p>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if securityEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "<p class=\"text-sm text-slate-800\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var66 string
-					templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(c.Body)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 812, Col: 49}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "</p>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "<div class=\"text-sm text-slate-800\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templ.Raw(c.Body).Render(ctx, templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "</div>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "</div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "<form method=\"post\" action=\"")
+			templ_7745c5c3_Err = CommentsList(comments, securityEnabled).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var67 templ.SafeURL
-			templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/ui/posts/%d/comment", post.ID)))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "<form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 819, Col: 92}
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var64 templ.SafeURL
+			templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/ui/posts/view/%d/comments", post.ID)))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 821, Col: 79}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "\" hx-post=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var65 string
+			templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(templ.SafeURL(fmt.Sprintf("/ui/partials/posts/view/%d/comments", post.ID)))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 822, Col: 89}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "\" hx-target=\"#comments-list\" hx-swap=\"outerHTML\" hx-on::after-request=\"if(event.detail.successful) this.reset()\" class=\"space-y-3 pt-2 border-t border-fuchsia-100\"><label class=\"block text-sm font-semibold text-slate-700\" for=\"comment-body\">Add a comment</label> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if !securityEnabled {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "<p class=\"text-xs text-rose-700 font-medium\">⚠️ Insecure mode: HTML is stored verbatim and rendered without escaping. Try: <code class=\"bg-rose-50 rounded px-1\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var66 string
+				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs("<script>alert('XSS')</script>")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 830, Col: 204}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "</code></p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "<textarea id=\"comment-body\" name=\"body\" rows=\"3\" placeholder=\"Write your comment...\" required class=\"w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition font-mono\"></textarea> <button type=\"submit\" class=\"inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-md shadow-pink-200 transition hover:-translate-y-0.5\">✓ Submit Comment</button></form></section><div class=\"rounded-2xl border border-rose-200 bg-rose-50/50 p-5 text-xs space-y-2\"><p class=\"font-bold text-rose-800\">💉 Stored XSS — how it works</p><ul class=\"list-disc list-inside space-y-1 text-rose-900\"><li>In <strong>insecure mode</strong> comments are stored verbatim and rendered with <code class=\"font-mono bg-white/70 rounded px-1\">templ.Raw()</code> — any HTML/JS executes.</li><li>In <strong>secure mode</strong> the body is HTML-escaped with <code class=\"font-mono bg-white/70 rounded px-1\">html.EscapeString()</code> before storage, so scripts become inert text.</li><li>Payload: <code class=\"font-mono bg-white/70 rounded px-1\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var67 string
+			templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(`<script>alert('XSS! cookie='+document.cookie)</script>`)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 850, Col: 125}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "\" class=\"space-y-3 pt-2 border-t border-fuchsia-100\"><label class=\"block text-sm font-semibold text-slate-700\" for=\"comment-body\">Add a comment</label> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "</code></li><li>Payload: <code class=\"font-mono bg-white/70 rounded px-1\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if !securityEnabled {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, "<p class=\"text-xs text-rose-700 font-medium\">⚠️ Insecure mode: HTML is stored verbatim and rendered without escaping. Try: <code class=\"bg-rose-50 rounded px-1\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var68 string
-				templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs("<script>alert('XSS')</script>")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 822, Col: 204}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "</code></p>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+			var templ_7745c5c3_Var68 string
+			templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(`<img src=x onerror="alert(1)">`)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 851, Col: 101}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "<textarea id=\"comment-body\" name=\"body\" rows=\"3\" placeholder=\"Write your comment...\" required class=\"w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition font-mono\"></textarea> <button type=\"submit\" class=\"inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-md shadow-pink-200 transition hover:-translate-y-0.5\">✓ Submit Comment</button></form></section><div class=\"rounded-2xl border border-rose-200 bg-rose-50/50 p-5 text-xs space-y-2\"><p class=\"font-bold text-rose-800\">💉 Stored XSS — how it works</p><ul class=\"list-disc list-inside space-y-1 text-rose-900\"><li>In <strong>insecure mode</strong> comments are stored verbatim and rendered with <code class=\"font-mono bg-white/70 rounded px-1\">templ.Raw()</code> — any HTML/JS executes.</li><li>In <strong>secure mode</strong> the body is HTML-escaped with <code class=\"font-mono bg-white/70 rounded px-1\">html.EscapeString()</code> before storage, so scripts become inert text.</li><li>Payload: <code class=\"font-mono bg-white/70 rounded px-1\">")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var69 string
-			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(`<script>alert('XSS! cookie='+document.cookie)</script>`)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 842, Col: 125}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "</code></li><li>Payload: <code class=\"font-mono bg-white/70 rounded px-1\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var70 string
-			templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(`<img src=x onerror="alert(1)">`)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 843, Col: 101}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "</code></li></ul></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "</code></li></ul></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
 		templ_7745c5c3_Err = Layout(post.Title, securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var57), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func CommentsList(comments []service.Comment, securityEnabled bool) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var69 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var69 == nil {
+			templ_7745c5c3_Var69 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "<div id=\"comments-list\" class=\"space-y-3\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if len(comments) == 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "<p class=\"text-sm text-slate-500\">No comments yet. Be the first!</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		for _, c := range comments {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "<div class=\"rounded-xl border border-slate-100 bg-slate-50 p-4\"><p class=\"text-xs font-semibold text-fuchsia-700 mb-1\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var70 string
+			templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(c.Author)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 865, Col: 69}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, " <span class=\"text-slate-400 font-normal\">• ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var71 string
+			templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(c.CreatedAt)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 865, Col: 130}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "</span></p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if securityEnabled {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "<p class=\"text-sm text-slate-800\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var72 string
+				templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(c.Body)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 867, Col: 47}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "</p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "<div class=\"text-sm text-slate-800\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templ.Raw(c.Body).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1754,12 +1804,12 @@ func CSRFDemoPage(securityEnabled bool, loggedIn bool, username string, csrfToke
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var71 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var71 == nil {
-			templ_7745c5c3_Var71 = templ.NopComponent
+		templ_7745c5c3_Var73 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var73 == nil {
+			templ_7745c5c3_Var73 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var72 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var74 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -1771,12 +1821,12 @@ func CSRFDemoPage(securityEnabled bool, loggedIn bool, username string, csrfToke
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">🔄 CSRF Demo</h1><p class=\"text-slate-600 mt-2 text-sm\">Both forms update your account email address. The vulnerable form has no CSRF token; the secure form validates one.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">🔄 CSRF Demo</h1><p class=\"text-slate-600 mt-2 text-sm\">Both forms update your account email address. The vulnerable form has no CSRF token; the secure form validates one.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if !loggedIn {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "<div class=\"rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800\">⚠️ Log in first so the state-change (email update) has a target. <a href=\"/ui/login\" class=\"ml-2 font-semibold underline\">Go to login</a></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, "<div class=\"rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800\">⚠️ Log in first so the state-change (email update) has a target. <a href=\"/ui/login\" class=\"ml-2 font-semibold underline\">Go to login</a></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1788,83 +1838,83 @@ func CSRFDemoPage(securityEnabled bool, loggedIn bool, username string, csrfToke
 				}
 			}
 			if currentEmail != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<div class=\"rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm\">Current email for <strong>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "<div class=\"rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm\">Current email for <strong>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var73 string
-				templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(username)
+				var templ_7745c5c3_Var75 string
+				templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 875, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 901, Col: 41}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "</strong>: <code class=\"font-mono font-bold text-fuchsia-700\">")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var74 string
-				templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(currentEmail)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 875, Col: 119}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, "</code></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "<div class=\"grid md:grid-cols-2 gap-6\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/50 p-6 space-y-4\"><h2 class=\"text-lg font-bold text-rose-800\">⚠️ Vulnerable (no CSRF token)</h2><p class=\"text-xs text-rose-700\">This form POSTs to <code class=\"font-mono\">/ui/csrf-demo</code>. A forged request from any origin can update the email.</p><form method=\"post\" action=\"/ui/csrf-demo\" class=\"space-y-3\"><div><label class=\"block text-sm font-semibold text-slate-700 mb-1\" for=\"vuln-email\">New email</label> <input id=\"vuln-email\" name=\"new_email\" type=\"email\" placeholder=\"victim@example.com\" required class=\"w-full rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition\"></div><button type=\"submit\" class=\"w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-rose-500 to-orange-400 text-white text-sm font-semibold shadow-md transition hover:-translate-y-0.5\">📧 Update Email (Vulnerable)</button></form><div class=\"text-xs text-rose-700 space-y-1 border-t border-rose-200 pt-3\"><p class=\"font-bold\">PoC — simulate a CSRF attack:</p><p>An attacker hosts a page that auto-submits this form cross-origin:</p><code class=\"block bg-white/80 rounded p-2 font-mono text-[10px] whitespace-pre-wrap\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var75 string
-			templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(`<form method="POST" action="http://localhost:8080/ui/csrf-demo">
-  <input name="new_email" value="hacked@evil.com">
-</form>
-<script>document.forms[0].submit()</script>`)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 899, Col: 44}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "</code></div></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/50 p-6 space-y-4\"><h2 class=\"text-lg font-bold text-emerald-800\">🛡️ Secure (CSRF token validated)</h2><p class=\"text-xs text-emerald-700\">This form POSTs to <code class=\"font-mono\">/ui/csrf-secure</code>. A hidden token is validated against the cookie; cross-origin requests lack it.</p><form method=\"post\" action=\"/ui/csrf-secure\" class=\"space-y-3\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if csrfToken != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "<input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "</strong>: <code class=\"font-mono font-bold text-fuchsia-700\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var76 string
-				templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(csrfToken)
+				templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(currentEmail)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 908, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 901, Col: 119}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "</code></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "<div><label class=\"block text-sm font-semibold text-slate-700 mb-1\" for=\"sec-email\">New email</label> <input id=\"sec-email\" name=\"new_email\" type=\"email\" placeholder=\"safe@example.com\" required class=\"w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition\"></div><button type=\"submit\" class=\"w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-semibold shadow-md transition hover:-translate-y-0.5\">📧 Update Email (Secure)</button></form><div class=\"text-xs text-emerald-700 space-y-1 border-t border-emerald-200 pt-3\"><p class=\"font-bold\">Why it's safe:</p><ul class=\"list-disc list-inside space-y-0.5\"><li>Server generates a random token per request</li><li>Token stored in <code class=\"font-mono\">bai_csrf_token</code> cookie</li><li>Token embedded as a hidden form field</li><li>POST validates cookie token == form token</li><li>Cross-origin form cannot read the cookie</li></ul></div></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, "<div class=\"grid md:grid-cols-2 gap-6\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/50 p-6 space-y-4\"><h2 class=\"text-lg font-bold text-rose-800\">⚠️ Vulnerable (no CSRF token)</h2><p class=\"text-xs text-rose-700\">This form POSTs to <code class=\"font-mono\">/ui/csrf-demo</code>. A forged request from any origin can update the email.</p><form method=\"post\" action=\"/ui/csrf-demo\" class=\"space-y-3\"><div><label class=\"block text-sm font-semibold text-slate-700 mb-1\" for=\"vuln-email\">New email</label> <input id=\"vuln-email\" name=\"new_email\" type=\"email\" placeholder=\"victim@example.com\" required class=\"w-full rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition\"></div><button type=\"submit\" class=\"w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-rose-500 to-orange-400 text-white text-sm font-semibold shadow-md transition hover:-translate-y-0.5\">📧 Update Email (Vulnerable)</button></form><div class=\"text-xs text-rose-700 space-y-1 border-t border-rose-200 pt-3\"><p class=\"font-bold\">PoC — simulate a CSRF attack:</p><p>An attacker hosts a page that auto-submits this form cross-origin:</p><code class=\"block bg-white/80 rounded p-2 font-mono text-[10px] whitespace-pre-wrap\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var77 string
+			templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(`<form method="POST" action="http://localhost:8080/ui/csrf-demo">
+  <input name="new_email" value="hacked@evil.com">
+</form>
+<script>document.forms[0].submit()</script>`)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 925, Col: 44}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "</code></div></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/50 p-6 space-y-4\"><h2 class=\"text-lg font-bold text-emerald-800\">🛡️ Secure (CSRF token validated)</h2><p class=\"text-xs text-emerald-700\">This form POSTs to <code class=\"font-mono\">/ui/csrf-secure</code>. A hidden token is validated against the cookie; cross-origin requests lack it.</p><form method=\"post\" action=\"/ui/csrf-secure\" class=\"space-y-3\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if csrfToken != "" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, "<input type=\"hidden\" name=\"csrf_token\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var78 string
+				templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(csrfToken)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 934, Col: 63}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "<div><label class=\"block text-sm font-semibold text-slate-700 mb-1\" for=\"sec-email\">New email</label> <input id=\"sec-email\" name=\"new_email\" type=\"email\" placeholder=\"safe@example.com\" required class=\"w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition\"></div><button type=\"submit\" class=\"w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-semibold shadow-md transition hover:-translate-y-0.5\">📧 Update Email (Secure)</button></form><div class=\"text-xs text-emerald-700 space-y-1 border-t border-emerald-200 pt-3\"><p class=\"font-bold\">Why it's safe:</p><ul class=\"list-disc list-inside space-y-0.5\"><li>Server generates a random token per request</li><li>Token stored in <code class=\"font-mono\">bai_csrf_token</code> cookie</li><li>Token embedded as a hidden form field</li><li>POST validates cookie token == form token</li><li>Cross-origin form cannot read the cookie</li></ul></div></div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("CSRF Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var72), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("CSRF Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var74), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1891,12 +1941,12 @@ func IDORDemoPage(posts []service.Post, securityEnabled bool, loggedIn bool, use
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var77 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var77 == nil {
-			templ_7745c5c3_Var77 = templ.NopComponent
+		templ_7745c5c3_Var79 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var79 == nil {
+			templ_7745c5c3_Var79 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var78 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var80 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -1908,7 +1958,7 @@ func IDORDemoPage(posts []service.Post, securityEnabled bool, loggedIn bool, use
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">🆔 IDOR / Broken Access Control Demo</h1><p class=\"text-slate-600 mt-2 text-sm\">Insecure Direct Object Reference — any authenticated user can delete any post by changing the ID in the request.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">🆔 IDOR / Broken Access Control Demo</h1><p class=\"text-slate-600 mt-2 text-sm\">Insecure Direct Object Reference — any authenticated user can delete any post by changing the ID in the request.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1918,120 +1968,120 @@ func IDORDemoPage(posts []service.Post, securityEnabled bool, loggedIn bool, use
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "<div class=\"grid md:grid-cols-2 gap-6\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/50 p-5 space-y-3\"><h2 class=\"font-bold text-rose-800\">⚠️ Insecure mode</h2><ul class=\"text-xs text-rose-900 list-disc list-inside space-y-1\"><li>No ownership check — the app only verifies the user is logged in</li><li>Any user can DELETE any post regardless of who wrote it</li><li>Toggle <code class=\"font-mono\">SECURITY_ENABLED=false</code> (current) to test</li></ul><p class=\"text-xs text-rose-700 font-medium pt-1\">Try: log in as <code class=\"font-mono\">user1 / user1pass</code> and delete an admin post below.</p></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 space-y-3\"><h2 class=\"font-bold text-emerald-800\">🛡️ Secure mode</h2><ul class=\"text-xs text-emerald-900 list-disc list-inside space-y-1\"><li>Handler fetches the post's <code class=\"font-mono\">author_username</code> from the DB</li><li>Regular users can only delete posts they authored</li><li>Admin can delete any post</li><li>Toggle <code class=\"font-mono\">SECURITY_ENABLED=true</code> to test</li></ul></div></div><div class=\"rounded-2xl border border-fuchsia-100 bg-white/90 p-5 shadow-sm\"><h2 class=\"text-lg font-bold text-slate-900 mb-4\">All Posts (with delete buttons)</h2><p class=\"text-xs text-slate-600 mb-4\">In ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, "<div class=\"grid md:grid-cols-2 gap-6\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/50 p-5 space-y-3\"><h2 class=\"font-bold text-rose-800\">⚠️ Insecure mode</h2><ul class=\"text-xs text-rose-900 list-disc list-inside space-y-1\"><li>No ownership check — the app only verifies the user is logged in</li><li>Any user can DELETE any post regardless of who wrote it</li><li>Toggle <code class=\"font-mono\">SECURITY_ENABLED=false</code> (current) to test</li></ul><p class=\"text-xs text-rose-700 font-medium pt-1\">Try: log in as <code class=\"font-mono\">user1 / user1pass</code> and delete an admin post below.</p></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 space-y-3\"><h2 class=\"font-bold text-emerald-800\">🛡️ Secure mode</h2><ul class=\"text-xs text-emerald-900 list-disc list-inside space-y-1\"><li>Handler fetches the post's <code class=\"font-mono\">author_username</code> from the DB</li><li>Regular users can only delete posts they authored</li><li>Admin can delete any post</li><li>Toggle <code class=\"font-mono\">SECURITY_ENABLED=true</code> to test</li></ul></div></div><div class=\"rounded-2xl border border-fuchsia-100 bg-white/90 p-5 shadow-sm\"><h2 class=\"text-lg font-bold text-slate-900 mb-4\">All Posts (with delete buttons)</h2><p class=\"text-xs text-slate-600 mb-4\">In ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if securityEnabled {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "<strong class=\"text-emerald-700\">secure mode</strong> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "<strong class=\"text-emerald-700\">secure mode</strong> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, "<strong class=\"text-rose-700\">insecure mode</strong> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "<strong class=\"text-rose-700\">insecure mode</strong> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, "the delete action ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "the delete action ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if securityEnabled {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "<strong>enforces ownership</strong> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "<strong>enforces ownership</strong> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "<strong>ignores ownership</strong> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, "<strong>ignores ownership</strong> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, ". Delete buttons are shown for all posts — try deleting one you don't own!</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, ". Delete buttons are shown for all posts — try deleting one you don't own!</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(posts) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "<p class=\"text-sm text-slate-500\">No posts found.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, "<p class=\"text-sm text-slate-500\">No posts found.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			for _, p := range posts {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, "<div class=\"flex items-center justify-between gap-4 py-3 border-b border-slate-100 last:border-0\"><div class=\"flex-1 min-w-0\"><span class=\"font-semibold text-slate-900 text-sm\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var79 string
-				templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 995, Col: 67}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, "</span> ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if p.Author != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, "<span class=\"ml-2 text-xs text-slate-500\">by <span class=\"font-semibold text-fuchsia-700\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var80 string
-					templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(p.Author)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 997, Col: 108}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, "</span></span> ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, "<span class=\"ml-2 text-xs text-slate-400\">ID:")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, "<div class=\"flex items-center justify-between gap-4 py-3 border-b border-slate-100 last:border-0\"><div class=\"flex-1 min-w-0\"><span class=\"font-semibold text-slate-900 text-sm\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var81 string
-				templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", p.ID))
+				templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 999, Col: 77}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1021, Col: 67}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, "</span></div><form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, "</span> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var82 templ.SafeURL
-				templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/ui/posts/delete/%d", p.ID)))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1001, Col: 90}
+				if p.Author != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, "<span class=\"ml-2 text-xs text-slate-500\">by <span class=\"font-semibold text-fuchsia-700\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var82 string
+					templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(p.Author)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1023, Col: 108}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "</span></span> ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, "<span class=\"ml-2 text-xs text-slate-400\">ID:")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "\" class=\"shrink-0\" onsubmit=\"return confirm('Delete this post?')\"><button type=\"submit\" class=\"inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition border border-rose-200\">🗑️ Delete</button></form></div>")
+				var templ_7745c5c3_Var83 string
+				templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", p.ID))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1025, Col: 77}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var83))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "</span></div><form method=\"post\" action=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var84 templ.SafeURL
+				templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/ui/posts/delete/%d", p.ID)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1027, Col: 90}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var84))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "\" class=\"shrink-0\" onsubmit=\"return confirm('Delete this post?')\"><button type=\"submit\" class=\"inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition border border-rose-200\">🗑️ Delete</button></form></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, "</div><div class=\"rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2\"><p class=\"font-bold text-slate-700\">Code diff (handlers.go — PagePostDelete):</p><pre class=\"bg-white rounded-xl p-3 overflow-x-auto font-mono text-[11px] leading-relaxed\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, "</div><div class=\"rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2\"><p class=\"font-bold text-slate-700\">Code diff (handlers.go — PagePostDelete):</p><pre class=\"bg-white rounded-xl p-3 overflow-x-auto font-mono text-[11px] leading-relaxed\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var83 string
-			templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinStringErrs(`// INSECURE: only login check, no ownership enforcement
+			var templ_7745c5c3_Var85 string
+			templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(`// INSECURE: only login check, no ownership enforcement
 if !h.requireLoginUI(c, ...) { return }
 h.svc.DeletePost(id)  // any user can delete anything
 
@@ -2042,19 +2092,19 @@ if h.securityEnabled {
 }
 h.svc.DeletePost(id)`)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1022, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1048, Col: 21}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var83))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "</pre></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 183, "</pre></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("IDOR Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var78), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("IDOR Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var80), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2081,12 +2131,12 @@ func DBExposePage(users []service.UserRecord, securityEnabled bool, loggedIn boo
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var84 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var84 == nil {
-			templ_7745c5c3_Var84 = templ.NopComponent
+		templ_7745c5c3_Var86 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var86 == nil {
+			templ_7745c5c3_Var86 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var85 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var87 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -2098,161 +2148,161 @@ func DBExposePage(users []service.UserRecord, securityEnabled bool, loggedIn boo
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">🗄️ Sensitive Data Exposure</h1><p class=\"text-slate-600 mt-2 text-sm\">In insecure mode passwords are stored in <strong>plaintext</strong>. Anyone who gains read access to the database (via SQLi, misconfigured backup, leaked file, etc.) immediately sees all credentials.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">🗄️ Sensitive Data Exposure</h1><p class=\"text-slate-600 mt-2 text-sm\">In insecure mode passwords are stored in <strong>plaintext</strong>. Anyone who gains read access to the database (via SQLi, misconfigured backup, leaked file, etc.) immediately sees all credentials.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if !securityEnabled {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, "<div class=\"rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-semibold text-rose-800\">⚠️ Insecure mode — password_hash column contains <strong>plaintext passwords</strong>.</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 185, "<div class=\"rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-semibold text-rose-800\">⚠️ Insecure mode — password_hash column contains <strong>plaintext passwords</strong>.</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 183, "<div class=\"rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-800\">🛡️ Secure mode — passwords are stored as <strong>bcrypt hashes</strong>. Even with DB access an attacker cannot recover the originals directly.</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 186, "<div class=\"rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-800\">🛡️ Secure mode — passwords are stored as <strong>bcrypt hashes</strong>. Even with DB access an attacker cannot recover the originals directly.</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, "<div class=\"overflow-x-auto rounded-2xl border border-fuchsia-100 shadow-sm\"><table class=\"w-full text-sm\"><thead class=\"bg-fuchsia-50 border-b border-fuchsia-100\"><tr><th class=\"px-4 py-3 text-left font-bold text-slate-700\">ID</th><th class=\"px-4 py-3 text-left font-bold text-slate-700\">Username</th><th class=\"px-4 py-3 text-left font-bold text-slate-700\">password_hash ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 187, "<div class=\"overflow-x-auto rounded-2xl border border-fuchsia-100 shadow-sm\"><table class=\"w-full text-sm\"><thead class=\"bg-fuchsia-50 border-b border-fuchsia-100\"><tr><th class=\"px-4 py-3 text-left font-bold text-slate-700\">ID</th><th class=\"px-4 py-3 text-left font-bold text-slate-700\">Username</th><th class=\"px-4 py-3 text-left font-bold text-slate-700\">password_hash ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if !securityEnabled {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 185, "<span class=\"ml-1 text-rose-600 font-normal text-xs\">(plaintext!)</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 188, "<span class=\"ml-1 text-rose-600 font-normal text-xs\">(plaintext!)</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 186, "<span class=\"ml-1 text-emerald-600 font-normal text-xs\">(bcrypt)</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 189, "<span class=\"ml-1 text-emerald-600 font-normal text-xs\">(bcrypt)</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 187, "</th><th class=\"px-4 py-3 text-left font-bold text-slate-700\">Email</th><th class=\"px-4 py-3 text-left font-bold text-slate-700\">Role</th></tr></thead> <tbody class=\"divide-y divide-slate-100 bg-white/90\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 190, "</th><th class=\"px-4 py-3 text-left font-bold text-slate-700\">Email</th><th class=\"px-4 py-3 text-left font-bold text-slate-700\">Role</th></tr></thead> <tbody class=\"divide-y divide-slate-100 bg-white/90\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, u := range users {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 188, "<tr class=\"hover:bg-fuchsia-50/40 transition\"><td class=\"px-4 py-3 text-slate-600\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 191, "<tr class=\"hover:bg-fuchsia-50/40 transition\"><td class=\"px-4 py-3 text-slate-600\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var86 string
-				templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", u.ID))
+				var templ_7745c5c3_Var88 string
+				templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", u.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1073, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1099, Col: 70}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 189, "</td><td class=\"px-4 py-3 font-semibold text-fuchsia-700\">")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var87 string
-				templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(u.Username)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1074, Col: 73}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 192, "</td><td class=\"px-4 py-3 font-semibold text-fuchsia-700\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 190, "</td><td class=\"px-4 py-3 font-mono text-xs break-all max-w-xs\">")
+				var templ_7745c5c3_Var89 string
+				templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(u.Username)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1100, Col: 73}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 193, "</td><td class=\"px-4 py-3 font-mono text-xs break-all max-w-xs\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if !securityEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 191, "<span class=\"text-rose-700 font-bold\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 194, "<span class=\"text-rose-700 font-bold\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var88 string
-					templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs(u.PasswordHash)
+					var templ_7745c5c3_Var90 string
+					templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.JoinStringErrs(u.PasswordHash)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1077, Col: 64}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1103, Col: 64}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 192, "</span>")
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var90))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 193, "<span class=\"text-slate-500\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var89 string
-					templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(u.PasswordHash)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1079, Col: 55}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 194, "</span>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 195, "</td><td class=\"px-4 py-3 text-slate-600\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var90 string
-				templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1082, Col: 54}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var90))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, "</td><td class=\"px-4 py-3\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if u.Role == "admin" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 197, "<span class=\"inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-fuchsia-100 text-fuchsia-800\">admin</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 195, "</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 198, "<span class=\"inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, "<span class=\"text-slate-500\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var91 string
-					templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(u.Role)
+					templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(u.PasswordHash)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1087, Col: 132}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1105, Col: 55}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 199, "</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 197, "</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 200, "</td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 198, "</td><td class=\"px-4 py-3 text-slate-600\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var92 string
+				templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1108, Col: 54}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 199, "</td><td class=\"px-4 py-3\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if u.Role == "admin" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 200, "<span class=\"inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-fuchsia-100 text-fuchsia-800\">admin</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 201, "<span class=\"inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var93 string
+					templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinStringErrs(u.Role)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1113, Col: 132}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 202, "</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 203, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 201, "</tbody></table></div><div class=\"grid md:grid-cols-2 gap-5 text-xs\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/60 p-4 space-y-2\"><p class=\"font-bold text-rose-800\">Insecure mode (SECURITY_ENABLED=false):</p><ul class=\"list-disc list-inside text-rose-900 space-y-1\"><li>Passwords stored as plaintext in <code class=\"font-mono\">password_hash</code> column</li><li>Any DB dump / SQLi exfiltration instantly reveals all passwords</li><li>Password reuse across services → account takeover</li></ul></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2\"><p class=\"font-bold text-emerald-800\">Secure mode (SECURITY_ENABLED=true):</p><ul class=\"list-disc list-inside text-emerald-900 space-y-1\"><li>Passwords hashed with <code class=\"font-mono\">bcrypt</code> (cost 10)</li><li>One-way hash — cannot be reversed</li><li>Unique salt per hash — rainbow tables useless</li></ul></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 204, "</tbody></table></div><div class=\"grid md:grid-cols-2 gap-5 text-xs\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/60 p-4 space-y-2\"><p class=\"font-bold text-rose-800\">Insecure mode (SECURITY_ENABLED=false):</p><ul class=\"list-disc list-inside text-rose-900 space-y-1\"><li>Passwords stored as plaintext in <code class=\"font-mono\">password_hash</code> column</li><li>Any DB dump / SQLi exfiltration instantly reveals all passwords</li><li>Password reuse across services → account takeover</li></ul></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2\"><p class=\"font-bold text-emerald-800\">Secure mode (SECURITY_ENABLED=true):</p><ul class=\"list-disc list-inside text-emerald-900 space-y-1\"><li>Passwords hashed with <code class=\"font-mono\">bcrypt</code> (cost 10)</li><li>One-way hash — cannot be reversed</li><li>Unique salt per hash — rainbow tables useless</li></ul></div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("DB Expose Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var85), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("DB Expose Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var87), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2279,12 +2329,12 @@ func PathTraversalPage(securityEnabled bool, loggedIn bool, username string, fil
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var92 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var92 == nil {
-			templ_7745c5c3_Var92 = templ.NopComponent
+		templ_7745c5c3_Var94 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var94 == nil {
+			templ_7745c5c3_Var94 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var93 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var95 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -2296,20 +2346,20 @@ func PathTraversalPage(securityEnabled bool, loggedIn bool, username string, fil
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 202, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">📂 Path Traversal / LFI Demo</h1><p class=\"text-slate-600 mt-2 text-sm\">The file-read endpoint serves files from the <code class=\"font-mono\">./uploads/</code> directory. In insecure mode the filename is concatenated directly — attackers can escape the directory with <code class=\"font-mono\">../</code> sequences.</p></div><div class=\"grid md:grid-cols-2 gap-5 text-xs\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/60 p-4 space-y-2\"><p class=\"font-bold text-rose-800\">⚠️ Vulnerable endpoint: <code class=\"font-mono\">/api/files-vulnerable?name=</code></p><ul class=\"list-disc list-inside text-rose-900 space-y-1\"><li>Path: <code class=\"font-mono\">./uploads/ + name</code> (no validation)</li><li>Payload: <code class=\"font-mono\">../app.db</code> — reads the SQLite DB</li><li>Payload: <code class=\"font-mono\">../go.sum</code> — reads dependency hashes</li></ul></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2\"><p class=\"font-bold text-emerald-800\">🛡️ Secure endpoint: <code class=\"font-mono\">/api/files-secure?name=</code></p><ul class=\"list-disc list-inside text-emerald-900 space-y-1\"><li><code class=\"font-mono\">filepath.Clean</code> + <code class=\"font-mono\">HasPrefix</code> check</li><li>Resolved path must be inside <code class=\"font-mono\">uploads/</code></li><li>Any traversal attempt returns 400</li></ul></div></div><div class=\"rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-sm space-y-4\"><h2 class=\"text-lg font-bold text-slate-900\">Try it</h2><form method=\"get\" action=\"/ui/path-traversal\" class=\"flex items-end gap-3\"><div class=\"flex-1\"><label class=\"block text-sm font-semibold text-slate-700 mb-1\" for=\"pt-name\">Filename</label> <input id=\"pt-name\" name=\"name\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 205, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">📂 Path Traversal / LFI Demo</h1><p class=\"text-slate-600 mt-2 text-sm\">The file-read endpoint serves files from the <code class=\"font-mono\">./uploads/</code> directory. In insecure mode the filename is concatenated directly — attackers can escape the directory with <code class=\"font-mono\">../</code> sequences.</p></div><div class=\"grid md:grid-cols-2 gap-5 text-xs\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/60 p-4 space-y-2\"><p class=\"font-bold text-rose-800\">⚠️ Vulnerable endpoint: <code class=\"font-mono\">/api/files-vulnerable?name=</code></p><ul class=\"list-disc list-inside text-rose-900 space-y-1\"><li>Path: <code class=\"font-mono\">./uploads/ + name</code> (no validation)</li><li>Payload: <code class=\"font-mono\">../app.db</code> — reads the SQLite DB</li><li>Payload: <code class=\"font-mono\">../go.sum</code> — reads dependency hashes</li></ul></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2\"><p class=\"font-bold text-emerald-800\">🛡️ Secure endpoint: <code class=\"font-mono\">/api/files-secure?name=</code></p><ul class=\"list-disc list-inside text-emerald-900 space-y-1\"><li><code class=\"font-mono\">filepath.Clean</code> + <code class=\"font-mono\">HasPrefix</code> check</li><li>Resolved path must be inside <code class=\"font-mono\">uploads/</code></li><li>Any traversal attempt returns 400</li></ul></div></div><div class=\"rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-sm space-y-4\"><h2 class=\"text-lg font-bold text-slate-900\">Try it</h2><form method=\"get\" action=\"/ui/path-traversal\" class=\"flex items-end gap-3\"><div class=\"flex-1\"><label class=\"block text-sm font-semibold text-slate-700 mb-1\" for=\"pt-name\">Filename</label> <input id=\"pt-name\" name=\"name\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var94 string
-			templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(filename)
+			var templ_7745c5c3_Var96 string
+			templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinStringErrs(filename)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1159, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1185, Col: 23}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var96))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 203, "\" placeholder=\"../app.db\" required class=\"w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition\"></div><button type=\"submit\" class=\"inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-md shadow-pink-200 transition hover:-translate-y-0.5\">📂 Read File</button></form><div class=\"flex gap-2 flex-wrap\"><a href=\"/ui/path-traversal?name=../app.db\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">../app.db</a> <a href=\"/ui/path-traversal?name=../go.sum\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">../go.sum</a> <a href=\"/ui/path-traversal?name=../README.md\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">../README.md</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 206, "\" placeholder=\"../app.db\" required class=\"w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition\"></div><button type=\"submit\" class=\"inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-md shadow-pink-200 transition hover:-translate-y-0.5\">📂 Read File</button></form><div class=\"flex gap-2 flex-wrap\"><a href=\"/ui/path-traversal?name=../app.db\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">../app.db</a> <a href=\"/ui/path-traversal?name=../go.sum\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">../go.sum</a> <a href=\"/ui/path-traversal?name=../README.md\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">../README.md</a></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2320,43 +2370,43 @@ func PathTraversalPage(securityEnabled bool, loggedIn bool, username string, fil
 				}
 			}
 			if content != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 204, "<div><p class=\"text-xs font-semibold text-slate-700 mb-1\">File contents of <code class=\"font-mono\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 207, "<div><p class=\"text-xs font-semibold text-slate-700 mb-1\">File contents of <code class=\"font-mono\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var95 string
-				templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(filename)
+				var templ_7745c5c3_Var97 string
+				templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(filename)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1178, Col: 110}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1204, Col: 110}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 205, "</code>:</p><pre class=\"bg-slate-900 text-slate-100 rounded-xl p-4 text-[11px] font-mono overflow-x-auto max-h-96 overflow-y-auto leading-relaxed whitespace-pre-wrap\">")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var96 string
-				templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinStringErrs(content)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1179, Col: 170}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var96))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 208, "</code>:</p><pre class=\"bg-slate-900 text-slate-100 rounded-xl p-4 text-[11px] font-mono overflow-x-auto max-h-96 overflow-y-auto leading-relaxed whitespace-pre-wrap\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 206, "</pre></div>")
+				var templ_7745c5c3_Var98 string
+				templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(content)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1205, Col: 170}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 209, "</pre></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 207, "</div><div class=\"rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2\"><p class=\"font-bold text-slate-700\">JSON API endpoints for curl / Burp:</p><pre class=\"bg-white rounded-xl p-3 font-mono text-[11px] leading-relaxed overflow-x-auto\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 210, "</div><div class=\"rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2\"><p class=\"font-bold text-slate-700\">JSON API endpoints for curl / Burp:</p><pre class=\"bg-white rounded-xl p-3 font-mono text-[11px] leading-relaxed overflow-x-auto\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var97 string
-			templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(`# Vulnerable — read any file the server can access:
+			var templ_7745c5c3_Var99 string
+			templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(`# Vulnerable — read any file the server can access:
 curl "http://localhost:8080/api/files-vulnerable?name=../app.db" | xxd | head -4
 curl "http://localhost:8080/api/files-vulnerable?name=../go.sum"
 
@@ -2364,19 +2414,19 @@ curl "http://localhost:8080/api/files-vulnerable?name=../go.sum"
 curl "http://localhost:8080/api/files-secure?name=../app.db"
 # → {"error":"path traversal detected — access denied",...}`)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1192, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1218, Col: 64}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 208, "</pre></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 211, "</pre></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Path Traversal Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var93), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Path Traversal Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var95), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2403,12 +2453,12 @@ func CmdInjectionPage(securityEnabled bool, loggedIn bool, username string, host
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var98 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var98 == nil {
-			templ_7745c5c3_Var98 = templ.NopComponent
+		templ_7745c5c3_Var100 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var100 == nil {
+			templ_7745c5c3_Var100 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var99 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var101 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -2420,20 +2470,20 @@ func CmdInjectionPage(securityEnabled bool, loggedIn bool, username string, host
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 209, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">💻 Command Injection Demo</h1><p class=\"text-slate-600 mt-2 text-sm\">The ping endpoint takes a host value from user input. In insecure mode it concatenates the value directly into <code class=\"font-mono\">sh -c \"ping -c1 &lt;host&gt;\"</code> — shell metacharacters like <code class=\"font-mono\">;</code> split the command and inject additional instructions that execute with the server&#39;s privileges.</p></div><div class=\"grid md:grid-cols-2 gap-5 text-xs\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/60 p-4 space-y-2\"><p class=\"font-bold text-rose-800\">⚠️ Vulnerable: <code class=\"font-mono\">/api/ping-vulnerable?host=</code></p><ul class=\"list-disc list-inside text-rose-900 space-y-1\"><li>Executes: <code class=\"font-mono\">sh -c \"ping -c1 \" + host</code> (no validation)</li><li>Payload: <code class=\"font-mono\">8.8.8.8 ; cat /etc/passwd</code></li><li>Payload: <code class=\"font-mono\">127.0.0.1 &amp;&amp; whoami</code></li><li>Payload: <code class=\"font-mono\">x | id</code></li></ul></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2\"><p class=\"font-bold text-emerald-800\">🛡️ Secure: <code class=\"font-mono\">/api/ping-secure?host=</code></p><ul class=\"list-disc list-inside text-emerald-900 space-y-1\"><li>Validates host against <code class=\"font-mono\">^[a-zA-Z0-9.\\-]+$</code></li><li>Uses <code class=\"font-mono\">exec.Command(\"ping\",\"-c1\",host)</code> — no shell</li><li>Any metacharacters → 400 immediately</li></ul></div></div><div class=\"rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-sm space-y-4\"><h2 class=\"text-lg font-bold text-slate-900\">Try it</h2><form method=\"get\" action=\"/ui/cmd-injection\" class=\"flex items-end gap-3\"><div class=\"flex-1\"><label class=\"block text-sm font-semibold text-slate-700 mb-1\" for=\"cmd-host\">Host / IP</label> <input id=\"cmd-host\" name=\"host\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "<div class=\"max-w-4xl mx-auto space-y-8\"><div><h1 class=\"text-3xl font-bold text-slate-900\">💻 Command Injection Demo</h1><p class=\"text-slate-600 mt-2 text-sm\">The ping endpoint takes a host value from user input. In insecure mode it concatenates the value directly into <code class=\"font-mono\">sh -c \"ping -c1 &lt;host&gt;\"</code> — shell metacharacters like <code class=\"font-mono\">;</code> split the command and inject additional instructions that execute with the server&#39;s privileges.</p></div><div class=\"grid md:grid-cols-2 gap-5 text-xs\"><div class=\"rounded-2xl border border-rose-200 bg-rose-50/60 p-4 space-y-2\"><p class=\"font-bold text-rose-800\">⚠️ Vulnerable: <code class=\"font-mono\">/api/ping-vulnerable?host=</code></p><ul class=\"list-disc list-inside text-rose-900 space-y-1\"><li>Executes: <code class=\"font-mono\">sh -c \"ping -c1 \" + host</code> (no validation)</li><li>Payload: <code class=\"font-mono\">8.8.8.8 ; cat /etc/passwd</code></li><li>Payload: <code class=\"font-mono\">127.0.0.1 &amp;&amp; whoami</code></li><li>Payload: <code class=\"font-mono\">x | id</code></li></ul></div><div class=\"rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2\"><p class=\"font-bold text-emerald-800\">🛡️ Secure: <code class=\"font-mono\">/api/ping-secure?host=</code></p><ul class=\"list-disc list-inside text-emerald-900 space-y-1\"><li>Validates host against <code class=\"font-mono\">^[a-zA-Z0-9.\\-]+$</code></li><li>Uses <code class=\"font-mono\">exec.Command(\"ping\",\"-c1\",host)</code> — no shell</li><li>Any metacharacters → 400 immediately</li></ul></div></div><div class=\"rounded-2xl border border-fuchsia-100 bg-white/90 p-6 shadow-sm space-y-4\"><h2 class=\"text-lg font-bold text-slate-900\">Try it</h2><form method=\"get\" action=\"/ui/cmd-injection\" class=\"flex items-end gap-3\"><div class=\"flex-1\"><label class=\"block text-sm font-semibold text-slate-700 mb-1\" for=\"cmd-host\">Host / IP</label> <input id=\"cmd-host\" name=\"host\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var100 string
-			templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(host)
+			var templ_7745c5c3_Var102 string
+			templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs(host)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1244, Col: 12}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1270, Col: 12}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 210, "\" placeholder=\"8.8.8.8 ; cat /etc/passwd\" required class=\"w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition\"></div><button type=\"submit\" class=\"inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-md shadow-pink-200 transition hover:-translate-y-0.5\">📡 Ping</button></form><div class=\"flex gap-2 flex-wrap\"><a href=\"/ui/cmd-injection?host=8.8.8.8\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 hover:bg-emerald-100 transition\">8.8.8.8</a> <a href=\"/ui/cmd-injection?host=8.8.8.8+%3B+cat+%2Fetc%2Fpasswd\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">8.8.8.8 ; cat /etc/passwd</a> <a href=\"/ui/cmd-injection?host=127.0.0.1+%26%26+whoami\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">127.0.0.1 &amp;&amp; whoami</a> <a href=\"/ui/cmd-injection?host=x+%7C+id\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">x | id</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 213, "\" placeholder=\"8.8.8.8 ; cat /etc/passwd\" required class=\"w-full rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition\"></div><button type=\"submit\" class=\"inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-sky-500 text-white text-sm font-semibold shadow-md shadow-pink-200 transition hover:-translate-y-0.5\">📡 Ping</button></form><div class=\"flex gap-2 flex-wrap\"><a href=\"/ui/cmd-injection?host=8.8.8.8\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 hover:bg-emerald-100 transition\">8.8.8.8</a> <a href=\"/ui/cmd-injection?host=8.8.8.8+%3B+cat+%2Fetc%2Fpasswd\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">8.8.8.8 ; cat /etc/passwd</a> <a href=\"/ui/cmd-injection?host=127.0.0.1+%26%26+whoami\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">127.0.0.1 &amp;&amp; whoami</a> <a href=\"/ui/cmd-injection?host=x+%7C+id\" class=\"inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 transition\">x | id</a></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2444,85 +2494,85 @@ func CmdInjectionPage(securityEnabled bool, loggedIn bool, username string, host
 				}
 			}
 			if output != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 211, "<div><p class=\"text-xs font-semibold text-slate-700 mb-1\">Output for host: <code class=\"font-mono\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 214, "<div><p class=\"text-xs font-semibold text-slate-700 mb-1\">Output for host: <code class=\"font-mono\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var101 string
-				templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.JoinStringErrs(host)
+				var templ_7745c5c3_Var103 string
+				templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinStringErrs(host)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1265, Col: 47}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1291, Col: 47}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var101))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "</code> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 215, "</code> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if !securityEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 213, "<span class=\"ml-2 text-rose-600\">(⚠️ vulnerable — run via sh -c)</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 216, "<span class=\"ml-2 text-rose-600\">(⚠️ vulnerable — run via sh -c)</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 214, "<span class=\"ml-2 text-emerald-600\">(🛡️ secure — no shell)</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 217, "<span class=\"ml-2 text-emerald-600\">(🛡️ secure — no shell)</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 215, "</p><pre class=\"bg-slate-900 text-slate-100 rounded-xl p-4 text-[11px] font-mono overflow-x-auto max-h-64 overflow-y-auto leading-relaxed whitespace-pre-wrap\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 218, "</p><pre class=\"bg-slate-900 text-slate-100 rounded-xl p-4 text-[11px] font-mono overflow-x-auto max-h-64 overflow-y-auto leading-relaxed whitespace-pre-wrap\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var102 string
-				templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs(output)
+				var templ_7745c5c3_Var104 string
+				templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.JoinStringErrs(output)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1272, Col: 163}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1298, Col: 163}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 216, "</pre></div>")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var104))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 219, "</pre></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 217, "</div><div class=\"rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2\"><p class=\"font-bold text-slate-700\">Code diff (handlers.go):</p><pre class=\"bg-white rounded-xl p-3 overflow-x-auto font-mono text-[11px] leading-relaxed\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 220, "</div><div class=\"rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2\"><p class=\"font-bold text-slate-700\">Code diff (handlers.go):</p><pre class=\"bg-white rounded-xl p-3 overflow-x-auto font-mono text-[11px] leading-relaxed\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var103 string
-			templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinStringErrs(cmdInjectionCodeDiff())
+			var templ_7745c5c3_Var105 string
+			templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(cmdInjectionCodeDiff())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1279, Col: 115}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1305, Col: 115}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 218, "</pre></div><div class=\"rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2\"><p class=\"font-bold text-slate-700\">JSON API endpoints for curl / Burp:</p><pre class=\"bg-white rounded-xl p-3 font-mono text-[11px] leading-relaxed overflow-x-auto\">")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var105))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var104 string
-			templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.JoinStringErrs(cmdInjectionCurlExamples())
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1284, Col: 119}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var104))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 221, "</pre></div><div class=\"rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs space-y-2\"><p class=\"font-bold text-slate-700\">JSON API endpoints for curl / Burp:</p><pre class=\"bg-white rounded-xl p-3 font-mono text-[11px] leading-relaxed overflow-x-auto\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 219, "</pre></div></div>")
+			var templ_7745c5c3_Var106 string
+			templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs(cmdInjectionCurlExamples())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/views/pages.templ`, Line: 1310, Col: 119}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 222, "</pre></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Command Injection Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var99), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Command Injection Demo", securityEnabled, loggedIn, username).Render(templ.WithChildren(ctx, templ_7745c5c3_Var101), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
