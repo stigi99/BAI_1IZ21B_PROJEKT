@@ -23,6 +23,13 @@ var (
 	seedJavascriptSchemeRE = regexp.MustCompile(`(?i)javascript\s*:`)
 )
 
+// seededAdminCredentials resolves the bootstrap admin credentials from the
+// environment and falls back to the built-in demo account when unset.
+//
+// Outputs:
+//   - username: admin username used during seeding.
+//   - password: admin password stored for the seed account.
+//   - email: admin email stored for the seed account.
 func seededAdminCredentials() (username, password, email string) {
 	username = os.Getenv("ADMIN_USERNAME")
 	if username == "" {
@@ -92,18 +99,64 @@ func MigrateDB(db *sql.DB) {
 		}
 	}
 
-	// Idempotent column additions for existing databases.
-	addColumns := []string{
-		"ALTER TABLE blog ADD COLUMN author_username VARCHAR(50)",
-		"ALTER TABLE blog ADD COLUMN attachment_path VARCHAR(255)",
-		"ALTER TABLE blog ADD COLUMN attachment_name VARCHAR(255)",
-		"ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'",
+	addColumns := []struct {
+		table  string
+		column string
+		stmt   string
+	}{
+		{"blog", "author_username", "ALTER TABLE blog ADD COLUMN author_username VARCHAR(50)"},
+		{"blog", "attachment_path", "ALTER TABLE blog ADD COLUMN attachment_path VARCHAR(255)"},
+		{"blog", "attachment_name", "ALTER TABLE blog ADD COLUMN attachment_name VARCHAR(255)"},
+		{"users", "role", "ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'"},
 	}
-	for _, stmt := range addColumns {
-		if _, err := db.Exec(stmt); err != nil {
-			log.Printf("MigrateDB note (column may already exist): %v", err)
+	for _, col := range addColumns {
+		exists, err := columnExists(db, col.table, col.column)
+		if err != nil {
+			log.Fatalf("MigrateDB inspect %s.%s error: %v", col.table, col.column, err)
+		}
+		if exists {
+			continue
+		}
+		if _, err := db.Exec(col.stmt); err != nil {
+			log.Fatalf("MigrateDB add %s.%s error: %v", col.table, col.column, err)
 		}
 	}
+}
+
+// columnExists reports whether a SQLite table already contains the given column.
+//
+// Inputs:
+//   - db: open SQLite connection used for schema inspection.
+//   - table: table name to inspect.
+//   - column: column name to look up.
+//
+// Outputs:
+//   - bool: true when the column is already present.
+//   - error: database inspection failure, if any.
+func columnExists(db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			columnType string
+			notNull    int
+			defaultVal sql.NullString
+			pk         int
+		)
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultVal, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 // SeedDB inserts dummy data into blog and users tables when they are empty.
@@ -124,10 +177,13 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 			title, content, author string
 			published              int
 		}{
-			{"Hello World", "This is the first blog post.", adminUsername, 1},
-			{"Go is great", "Go makes it easy to build reliable software.", adminUsername, 1},
-			// Post by user1 — used for the IDOR / Broken Access Control demo.
-			{"User1's Post", "This post belongs to user1. In insecure mode any authenticated user can delete it.", "user1", 1},
+			{"Miku Expo setlist notes", "Community notes after a Vocaloid watch party: setlist, visuals, favorite modules and links to fan translations.", adminUsername, 1},
+			{"Fanart upload board rules", "Use attachments for sketches, cosplay references and cover art. Moderators review posts before featuring them on the front page.", adminUsername, 1},
+			// Post by user1 — used for the IDOR / Broken Access Control scenario.
+			{"Rin cosplay checklist", "This post belongs to user1. In insecure mode any authenticated member can delete it from the moderation queue.", "user1", 1},
+			// Hidden draft — used by the SQL Injection scenario to show that
+			// injected SQL can bypass the intended published-only view.
+			{"Unpublished Magical Mirai sponsor notes", "PRIVATE DRAFT: sponsor contact list, unreleased setlist notes and moderation decisions for the fan hub team.", adminUsername, 0},
 		}
 		for _, p := range posts {
 			if _, err := db.Exec(
@@ -145,9 +201,9 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 		log.Printf("SeedDB count comments error: %v", err)
 	} else if commentCount == 0 {
 		// This stored XSS payload is intentionally inserted in insecure mode so
-		// the demo works out of the box. In secure mode the body is HTML-escaped
-		// before storage, so the script tag is inert.
-		xssBody := `<img src=x onerror="alert('Stored XSS! cookie='+document.cookie)"> — demo payload`
+		// the comment workflow shows the issue out of the box. In secure mode the
+		// body is HTML-escaped before storage, so the script tag is inert.
+		xssBody := `<img src=x onerror="alert('Stored XSS! cookie='+document.cookie)"> — suspicious fan comment`
 		xssBody = encodeCommentForSeed(xssBody, securityEnabled)
 		if _, err := db.Exec(
 			"INSERT INTO comments (post_id, author, body) VALUES (1, 'attacker', ?)",
@@ -158,59 +214,79 @@ func SeedDB(db *sql.DB, securityEnabled bool) {
 	}
 
 	// Seed users
-	var userCount int
-	if err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount); err != nil {
+	var userCountCheck int
+	if err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCountCheck); err != nil {
 		log.Printf("SeedDB count users error: %v", err)
 		return
 	}
-	if userCount == 0 {
-		users := []struct{ username, password, email, role string }{
-			{adminUsername, adminPassword, adminEmail, "admin"},
-			{"user1", "user1pass", "user1@example.com", "user"},
-		}
-		for _, u := range users {
-			stored := encodePasswordForSeed(u.password, securityEnabled)
-			if _, err := db.Exec(
-				"INSERT INTO users (username, password_hash, email, role) VALUES (?, ?, ?, ?)",
-				u.username, stored, u.email, u.role,
-			); err != nil {
-				log.Printf("SeedDB users error: %v", err)
-			}
-		}
-	}
 
-	// Always ensure an admin row exists with the configured password format
-	// matching the current security mode.
-	stored := encodePasswordForSeed(adminPassword, securityEnabled)
-	if _, err := db.Exec(
-		"INSERT OR IGNORE INTO users (username, password_hash, email, role) VALUES (?, ?, ?, 'admin')",
-		adminUsername, stored, adminEmail,
-	); err != nil {
-		log.Printf("SeedDB ensure admin error: %v", err)
+	// Demo accounts are intentionally mode-aware. Re-seeding the app after a
+	// vulnerable/secure switch must not leave plaintext passwords in secure mode
+	// or bcrypt hashes in vulnerable mode for the predefined lab users.
+	users := []struct{ username, password, email, role string }{
+		{adminUsername, adminPassword, adminEmail, "admin"},
+		{"user1", "user1pass", "user1@example.com", "user"},
 	}
-
-	if _, err := db.Exec(
-		"UPDATE users SET role = 'admin' WHERE username = ?",
-		adminUsername,
-	); err != nil {
-		log.Printf("SeedDB enforce admin role error: %v", err)
+	for _, u := range users {
+		if err := upsertSeedUser(db, u.username, u.password, u.email, u.role, securityEnabled); err != nil {
+			log.Printf("SeedDB users error for %s: %v", u.username, err)
+		}
 	}
 }
 
 // encodePasswordForSeed returns the plaintext password in insecure mode and
 // a bcrypt hash in secure mode.
-func encodePasswordForSeed(password string, securityEnabled bool) string {
+func encodePasswordForSeed(password string, securityEnabled bool) (string, error) {
 	if !securityEnabled {
-		return password
+		return password, nil
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Printf("SeedDB bcrypt error (falling back to plaintext): %v", err)
-		return password
+		return "", err
 	}
-	return string(hash)
+	return string(hash), nil
 }
 
+// upsertSeedUser writes or refreshes a demo account using the current security
+// mode for password storage.
+//
+// Inputs:
+//   - db: open SQLite connection.
+//   - username: account name to insert or update.
+//   - password: plaintext seed password to hash or store as-is.
+//   - email: email address for the seed account.
+//   - role: role stored in the users table.
+//   - securityEnabled: controls bcrypt hashing versus plaintext storage.
+//
+// Output:
+//   - error: write failure, password hashing error, or SQL conflict error.
+func upsertSeedUser(db *sql.DB, username, password, email, role string, securityEnabled bool) error {
+	stored, err := encodePasswordForSeed(password, securityEnabled)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(
+		`INSERT INTO users (username, password_hash, email, role)
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT(username) DO UPDATE SET
+		     password_hash = excluded.password_hash,
+		     email = excluded.email,
+		     role = excluded.role`,
+		username, stored, email, role,
+	)
+	return err
+}
+
+// encodeCommentForSeed prepares a seed comment body according to the active
+// security mode.
+//
+// Inputs:
+//   - body: original HTML payload used for the stored XSS demo.
+//   - securityEnabled: controls whether the payload is escaped before storage.
+//
+// Output:
+//   - string: sanitized or raw comment body ready for insertion.
 func encodeCommentForSeed(body string, securityEnabled bool) string {
 	if !securityEnabled {
 		return body

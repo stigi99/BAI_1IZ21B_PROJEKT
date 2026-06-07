@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="Test coverage chart">
+
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff7fb"/>
+      <stop offset="48%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#64748b" flood-opacity="0.18"/>
+    </filter>
+    <marker id="arrow" markerWidth="16" markerHeight="16" refX="12" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="16" markerHeight="16" refX="12" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#e11d48"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="16" markerHeight="16" refX="12" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <style>
+    text { font-family: Arial, Helvetica, sans-serif; }
+    .h1 { font-size: 46px; font-weight: 800; fill: #0f172a; }
+    .sub { font-size: 24px; font-weight: 500; fill: #475569; }
+    .box-title { font-size: 26px; font-weight: 800; }
+    .small { font-size: 22px; font-weight: 500; fill: #334155; }
+    .tiny { font-size: 18px; font-weight: 600; fill: #334155; }
+    .label { font-size: 20px; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 5px; }
+    .pill { font-size: 22px; font-weight: 800; }
+    .axis { font-size: 21px; font-weight: 800; fill: #334155; }
+    .tick { font-size: 19px; font-weight: 700; fill: #475569; }
+  </style>
+<rect width="1600" height="900" rx="32" fill="url(#bg)"/>
+<text x="80" y="90" class="h1">Pokrycie scenariuszy testami</text>
+<text x="80" y="132" class="sub">Każda główna klasa podatności ma w raporcie metodę wywołania, wynik vulnerable, wynik secure</text>
+<text x="80" y="160" class="sub">i walidację testową.</text>
+<text x="175" y="283" text-anchor="end" class="axis">SQLi</text>
+<rect x="330" y="250" width="860" height="44" rx="22" fill="#e2e8f0"/>
+<rect x="330" y="250" width="860.0" height="44" rx="22" fill="#38bdf8"/>
+<text x="1166.0" y="280" text-anchor="end" class="pill" fill="#ffffff">4/4</text>
+<text x="175" y="353" text-anchor="end" class="axis">XSS</text>
+<rect x="330" y="320" width="860" height="44" rx="22" fill="#e2e8f0"/>
+<rect x="330" y="320" width="645.0" height="44" rx="22" fill="#38bdf8"/>
+<text x="951.0" y="350" text-anchor="end" class="pill" fill="#ffffff">3/4</text>
+<text x="175" y="423" text-anchor="end" class="axis">Auth</text>
+<rect x="330" y="390" width="860" height="44" rx="22" fill="#e2e8f0"/>
+<rect x="330" y="390" width="860.0" height="44" rx="22" fill="#38bdf8"/>
+<text x="1166.0" y="420" text-anchor="end" class="pill" fill="#ffffff">4/4</text>
+<text x="175" y="493" text-anchor="end" class="axis">IDOR</text>
+<rect x="330" y="460" width="860" height="44" rx="22" fill="#e2e8f0"/>
+<rect x="330" y="460" width="645.0" height="44" rx="22" fill="#38bdf8"/>
+<text x="951.0" y="490" text-anchor="end" class="pill" fill="#ffffff">3/4</text>
+<text x="175" y="563" text-anchor="end" class="axis">CSRF</text>
+<rect x="330" y="530" width="860" height="44" rx="22" fill="#e2e8f0"/>
+<rect x="330" y="530" width="645.0" height="44" rx="22" fill="#38bdf8"/>
+<text x="951.0" y="560" text-anchor="end" class="pill" fill="#ffffff">3/4</text>
+<text x="175" y="633" text-anchor="end" class="axis">Data</text>
+<rect x="330" y="600" width="860" height="44" rx="22" fill="#e2e8f0"/>
+<rect x="330" y="600" width="430.0" height="44" rx="22" fill="#38bdf8"/>
+<text x="736.0" y="630" text-anchor="end" class="pill" fill="#ffffff">2/4</text>
+<text x="175" y="703" text-anchor="end" class="axis">LFI</text>
+<rect x="330" y="670" width="860" height="44" rx="22" fill="#e2e8f0"/>
+<rect x="330" y="670" width="430.0" height="44" rx="22" fill="#38bdf8"/>
+<text x="736.0" y="700" text-anchor="end" class="pill" fill="#ffffff">2/4</text>
+<text x="175" y="773" text-anchor="end" class="axis">CMD</text>
+<rect x="330" y="740" width="860" height="44" rx="22" fill="#e2e8f0"/>
+<rect x="330" y="740" width="430.0" height="44" rx="22" fill="#38bdf8"/>
+<text x="736.0" y="770" text-anchor="end" class="pill" fill="#ffffff">2/4</text>
+<rect x="1230" y="280" width="270" height="240" rx="20" fill="#ffffff" stroke="#cbd5e1" stroke-width="3" filter="url(#shadow)"/>
+<text x="1256" y="324" class="box-title" fill="#0f172a">Skala</text>
+<text x="1256" y="362" class="small">1: tylko opis</text>
+<text x="1256" y="390" class="small">2: payload + wynik</text>
+<text x="1256" y="418" class="small">3: test secure</text>
+<text x="1256" y="446" class="small">4: pełna para vul/secure</text>
+</svg>

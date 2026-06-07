@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -30,25 +31,55 @@ const (
 	uploadsDir     = "./uploads"
 	uploadsURLPath = "/uploads"
 	maxUploadBytes = 5 << 20 // 5 MiB
-	// sessionSecret is used to HMAC-sign the auth cookie in secure mode.
+	// fallbackSessionSecret is used only when BAI_SESSION_SECRET is unset.
 	// In a production system this must come from a securely stored secret.
-	sessionSecret = "bai-lab-demo-secret-do-not-use-in-prod"
+	fallbackSessionSecret = "bai-lab-demo-secret-do-not-use-in-prod"
+	sessionSecretEnv      = "BAI_SESSION_SECRET"
+	securePingTimeout     = 3 * time.Second
 )
 
 type Handler struct {
-	svc             *service.Service
-	securityEnabled bool
+	svc *service.Service
 }
 
+// New constructs a handler bundle backed by the provided service and initial
+// security mode.
+//
+// Inputs:
+//   - svc: shared application service used by all route handlers.
+//   - securityEnabled: initial lab mode to apply to the service.
+//
+// Output:
+//   - *Handler: ready-to-use HTTP handler bundle.
 func New(svc *service.Service, securityEnabled bool) *Handler {
-	return &Handler{svc: svc, securityEnabled: securityEnabled}
+	svc.SetSecurityEnabled(securityEnabled)
+	return &Handler{svc: svc}
 }
 
+// securityEnabled reports the current lab mode through the underlying service.
+//
+// Output:
+//   - bool: true when the secure code paths are active.
+func (h *Handler) securityEnabled() bool {
+	return h.svc.SecurityEnabled()
+}
+
+// SetSecurityEnabled updates the active lab mode for subsequent requests.
+//
+// Input:
+//   - enabled: new security state to store.
 func (h *Handler) SetSecurityEnabled(enabled bool) {
-	h.securityEnabled = enabled
 	h.svc.SetSecurityEnabled(enabled)
 }
 
+// renderHTML writes a templ component to the response writer and falls back to
+// a plain-text 500 response when rendering fails.
+//
+// Inputs:
+//   - c: Gin context that owns the HTTP response.
+//   - status: HTTP status code to send before rendering.
+//   - pageName: short label used only for logging.
+//   - component: templ component to render.
 func renderHTML(c *gin.Context, status int, pageName string, component templ.Component) {
 	c.Status(status)
 	c.Header("Content-Type", "text/html; charset=utf-8")
@@ -62,10 +93,21 @@ func renderHTML(c *gin.Context, status int, pageName string, component templ.Com
 // signCookieValue creates a signed cookie value: "username|hmac(username)".
 // Used in secure mode so the cookie value cannot be trivially forged.
 func signCookieValue(username string) string {
-	mac := hmac.New(sha256.New, []byte(sessionSecret))
+	mac := hmac.New(sha256.New, []byte(sessionSecret()))
 	mac.Write([]byte(username))
 	sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 	return username + "|" + sig
+}
+
+// sessionSecret returns the secret used to sign secure-mode cookies.
+//
+// Output:
+//   - string: configured secret or the built-in demo fallback.
+func sessionSecret() string {
+	if secret := os.Getenv(sessionSecretEnv); secret != "" {
+		return secret
+	}
+	return fallbackSessionSecret
 }
 
 // verifyCookieValue checks the HMAC signature and returns the username.
@@ -82,21 +124,30 @@ func verifyCookieValue(value string) (string, bool) {
 	return username, true
 }
 
+// setAuthCookie stores the login cookie using either plaintext or signed mode.
+//
+// Inputs:
+//   - c: Gin context that owns the response.
+//   - username: authenticated username to store in the cookie.
 func (h *Handler) setAuthCookie(c *gin.Context, username string) {
 	cookieVal := username
-	if h.securityEnabled {
+	if h.securityEnabled() {
 		// Secure mode: HMAC-signed cookie + SameSite=Strict.
 		cookieVal = signCookieValue(username)
+		c.SetSameSite(http.SameSiteStrictMode)
 	}
 	// HttpOnly=true in both modes; Secure=false since the lab runs on plain HTTP.
 	c.SetCookie(authCookieName, cookieVal, 60*60*8, "/", "", false, true)
-	if h.securityEnabled {
-		// Append SameSite=Strict for the secure mode cookie.
-		existing := c.Writer.Header().Get("Set-Cookie")
-		c.Writer.Header().Set("Set-Cookie", existing+"; SameSite=Strict")
-	}
 }
 
+// currentUsername resolves the logged-in username from the auth cookie.
+//
+// Inputs:
+//   - c: Gin context that may contain the auth cookie.
+//
+// Outputs:
+//   - string: authenticated username when present and valid.
+//   - bool: true when a usable login cookie was found.
 func (h *Handler) currentUsername(c *gin.Context) (string, bool) {
 	raw, err := c.Cookie(authCookieName)
 	if err != nil || raw == "" {
@@ -104,7 +155,7 @@ func (h *Handler) currentUsername(c *gin.Context) (string, bool) {
 	}
 
 	var username string
-	if h.securityEnabled {
+	if h.securityEnabled() {
 		var ok bool
 		username, ok = verifyCookieValue(raw)
 		if !ok {
@@ -123,6 +174,14 @@ func (h *Handler) currentUsername(c *gin.Context) (string, bool) {
 	return username, true
 }
 
+// requireLoginJSON returns false and sends a 401 JSON response when the
+// request is not authenticated.
+//
+// Input:
+//   - c: Gin context that may already carry authentication state.
+//
+// Output:
+//   - bool: true when the request is authenticated.
 func (h *Handler) requireLoginJSON(c *gin.Context) bool {
 	if _, ok := h.currentUsername(c); ok {
 		return true
@@ -132,6 +191,15 @@ func (h *Handler) requireLoginJSON(c *gin.Context) bool {
 	return false
 }
 
+// requireLoginUI redirects unauthenticated requests to the supplied fallback
+// URL and returns false.
+//
+// Inputs:
+//   - c: Gin context that may already carry authentication state.
+//   - fallback: redirect target used when the request is not logged in.
+//
+// Output:
+//   - bool: true when the request is authenticated.
 func (h *Handler) requireLoginUI(c *gin.Context, fallback string) bool {
 	if _, ok := h.currentUsername(c); ok {
 		return true
@@ -157,7 +225,8 @@ func (h *Handler) GetPosts() gin.HandlerFunc {
 	}
 }
 
-// PostLogin accepts JSON with username and password. Honours the SECURITY_ENABLED toggle.
+// PostLogin accepts JSON credentials, applies the current security mode, and
+// returns a login result as JSON.
 func (h *Handler) PostLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -180,6 +249,7 @@ func (h *Handler) PostLogin() gin.HandlerFunc {
 	}
 }
 
+// PostRegister accepts JSON registration data and creates a new user record.
 func (h *Handler) PostRegister() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -206,6 +276,7 @@ func (h *Handler) PostRegister() gin.HandlerFunc {
 	}
 }
 
+// PostCreate accepts JSON post data and persists a new blog entry.
 func (h *Handler) PostCreate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -242,6 +313,7 @@ func (h *Handler) PostCreate() gin.HandlerFunc {
 	}
 }
 
+// PostUpdate accepts JSON post data and updates an existing entry.
 func (h *Handler) PostUpdate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
@@ -278,6 +350,7 @@ func (h *Handler) PostUpdate() gin.HandlerFunc {
 	}
 }
 
+// PostDelete deletes a post after the current mode-specific authorization check.
 func (h *Handler) PostDelete() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !h.requireLoginJSON(c) {
@@ -290,7 +363,7 @@ func (h *Handler) PostDelete() gin.HandlerFunc {
 			return
 		}
 
-		if h.securityEnabled {
+		if h.securityEnabled() {
 			username, ok := h.currentUsername(c)
 			if !ok {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Login required"})
@@ -317,6 +390,7 @@ func (h *Handler) PostDelete() gin.HandlerFunc {
 	}
 }
 
+// PagePosts renders the full blog list page with the current login state.
 func (h *Handler) PagePosts() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		posts, err := h.svc.GetAllPosts()
@@ -328,33 +402,32 @@ func (h *Handler) PagePosts() gin.HandlerFunc {
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
 		username, loggedIn := h.currentUsername(c)
-		if !loggedIn && message == "" {
-			message = "Please log in to add, edit, or delete posts"
-			isError = true
-		}
-		component := views.PostsPage(posts, h.securityEnabled, loggedIn, username, message, isError)
+		component := views.PostsPage(posts, h.securityEnabled(), loggedIn, username, message, isError)
 		renderHTML(c, http.StatusOK, "posts", component)
 	}
 }
 
+// PageLogin renders the login page.
 func (h *Handler) PageLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)
-		component := views.LoginPage(h.securityEnabled, loggedIn, username, "", false)
+		component := views.LoginPage(h.securityEnabled(), loggedIn, username, "", false)
 		renderHTML(c, http.StatusOK, "login", component)
 	}
 }
 
+// PageRegister renders the registration page.
 func (h *Handler) PageRegister() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
 		username, loggedIn := h.currentUsername(c)
-		component := views.RegisterPage(h.securityEnabled, loggedIn, username, message, isError)
+		component := views.RegisterPage(h.securityEnabled(), loggedIn, username, message, isError)
 		renderHTML(c, http.StatusOK, "register", component)
 	}
 }
 
+// PageRegisterSubmit handles the classic form-based registration flow.
 func (h *Handler) PageRegisterSubmit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username := c.PostForm("username")
@@ -403,6 +476,7 @@ func (h *Handler) PageRegisterPartial() gin.HandlerFunc {
 	}
 }
 
+// PagePostsPartial returns the posts list fragment used by HTMX updates.
 func (h *Handler) PagePostsPartial() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		posts, err := h.svc.GetAllPosts()
@@ -412,11 +486,12 @@ func (h *Handler) PagePostsPartial() gin.HandlerFunc {
 		}
 
 		username, loggedIn := h.currentUsername(c)
-		component := views.PostsListContainer(posts, loggedIn, username, h.securityEnabled)
+		component := views.PostsListContainer(posts, loggedIn, username, h.securityEnabled())
 		renderHTML(c, http.StatusOK, "posts_partial", component)
 	}
 }
 
+// readPublishedFromForm normalizes common checkbox and select values to 0 or 1.
 func readPublishedFromForm(c *gin.Context) int {
 	v := c.PostForm("published")
 	if v == "1" || v == "on" || v == "true" {
@@ -466,6 +541,7 @@ func sanitizeFilename(name string) string {
 	return name
 }
 
+// PagePostsCreate handles the classic form-based create-post flow.
 func (h *Handler) PagePostsCreate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !h.requireLoginUI(c, "/ui/login?err=1&msg=Please+log+in+to+add+posts") {
@@ -503,6 +579,7 @@ func (h *Handler) PagePostsCreate() gin.HandlerFunc {
 
 // PagePostsCreatePartial handles HTMX form submissions and returns the freshly
 // rendered posts list so the page updates without a full reload.
+// PagePostsCreatePartial handles HTMX post creation and re-renders the list.
 func (h *Handler) PagePostsCreatePartial() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)
@@ -518,7 +595,7 @@ func (h *Handler) PagePostsCreatePartial() gin.HandlerFunc {
 
 		if title == "" {
 			posts, _ := h.svc.GetAllPosts()
-			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled, "Title is required", true)
+			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled(), "Title is required", true)
 			renderHTML(c, http.StatusBadRequest, "posts_create_partial", component)
 			return
 		}
@@ -526,25 +603,26 @@ func (h *Handler) PagePostsCreatePartial() gin.HandlerFunc {
 		attachmentPath, attachmentName, err := h.saveUploadedAttachment(c, "attachment")
 		if err != nil {
 			posts, _ := h.svc.GetAllPosts()
-			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled, "Failed to save attachment: "+err.Error(), true)
+			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled(), "Failed to save attachment: "+err.Error(), true)
 			renderHTML(c, http.StatusBadRequest, "posts_create_partial", component)
 			return
 		}
 
 		if _, err := h.svc.CreatePost(title, content, published, username, attachmentPath, attachmentName); err != nil {
 			posts, _ := h.svc.GetAllPosts()
-			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled, "Failed to create post", true)
+			component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled(), "Failed to create post", true)
 			renderHTML(c, http.StatusInternalServerError, "posts_create_partial", component)
 			return
 		}
 
 		posts, _ := h.svc.GetAllPosts()
-		component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled, "Post created", false)
+		component := views.PostsListWithBanner(posts, loggedIn, username, h.securityEnabled(), "Post created", false)
 		c.Header("HX-Trigger", "post-created")
 		renderHTML(c, http.StatusOK, "posts_create_partial", component)
 	}
 }
 
+// PagePostEdit renders the edit form for a single post.
 func (h *Handler) PagePostEdit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !h.requireLoginUI(c, "/ui/login?err=1&msg=Please+log+in+to+edit+posts") {
@@ -570,11 +648,12 @@ func (h *Handler) PagePostEdit() gin.HandlerFunc {
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
 		username, loggedIn := h.currentUsername(c)
-		component := views.EditPostPage(h.securityEnabled, loggedIn, username, post, message, isError)
+		component := views.EditPostPage(h.securityEnabled(), loggedIn, username, post, message, isError)
 		renderHTML(c, http.StatusOK, "post_edit", component)
 	}
 }
 
+// PagePostEditSubmit processes the edit form and persists the updated post.
 func (h *Handler) PagePostEditSubmit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !h.requireLoginUI(c, "/ui/login?err=1&msg=Please+log+in+to+edit+posts") {
@@ -611,6 +690,7 @@ func (h *Handler) PagePostEditSubmit() gin.HandlerFunc {
 	}
 }
 
+// PagePostDelete handles the browser form used to delete a post.
 func (h *Handler) PagePostDelete() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !h.requireLoginUI(c, "/ui/login?err=1&msg=Please+log+in+to+delete+posts") {
@@ -623,7 +703,7 @@ func (h *Handler) PagePostDelete() gin.HandlerFunc {
 			return
 		}
 
-		if h.securityEnabled {
+		if h.securityEnabled() {
 			username, ok := h.currentUsername(c)
 			if !ok {
 				c.Redirect(http.StatusSeeOther, "/ui/login?err=1&msg=Please+log+in+to+delete+posts")
@@ -650,17 +730,28 @@ func (h *Handler) PagePostDelete() gin.HandlerFunc {
 	}
 }
 
+// evaluateLogin validates the login request and returns the message, error
+// state, and HTTP status that the caller should send back.
+//
+// Inputs:
+//   - username: submitted username.
+//   - password: submitted password.
+//
+// Outputs:
+//   - message: human-readable result for the UI or API.
+//   - isError: true when the login failed.
+//   - status: HTTP status code that matches the result.
 func (h *Handler) evaluateLogin(username, password string) (message string, isError bool, status int) {
 	if username == "" || password == "" {
 		return "Username and password are required", true, http.StatusBadRequest
 	}
 
 	// Secure mode: enforce rate limiting to block brute-force attacks.
-	if h.securityEnabled && !h.svc.CheckRateLimit(username) {
+	if h.securityEnabled() && !h.svc.CheckRateLimit(username) {
 		return "Too many failed attempts. Please wait 60 seconds.", true, http.StatusTooManyRequests
 	}
 
-	if h.securityEnabled {
+	if h.securityEnabled() {
 		valid, err := h.svc.ValidateUserCredentials(username, password)
 		if err != nil {
 			return "Database error", true, http.StatusInternalServerError
@@ -687,6 +778,7 @@ func (h *Handler) evaluateLogin(username, password string) (message string, isEr
 }
 
 // Logout clears the auth cookie and redirects to posts UI.
+// Logout clears the auth cookie and redirects to the posts page.
 func (h *Handler) Logout() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.SetCookie(authCookieName, "", -1, "/", "", false, true)
@@ -694,6 +786,15 @@ func (h *Handler) Logout() gin.HandlerFunc {
 	}
 }
 
+// canDeletePost reports whether the current user may delete the selected post.
+//
+// Inputs:
+//   - username: authenticated username.
+//   - postID: identifier of the post to delete.
+//
+// Outputs:
+//   - bool: true when deletion is allowed.
+//   - error: lookup failure while checking role or ownership.
 func (h *Handler) canDeletePost(username string, postID int) (bool, error) {
 	isAdmin, err := h.svc.IsUserAdmin(username)
 	if err != nil {
@@ -714,6 +815,7 @@ func (h *Handler) canDeletePost(username string, postID int) (bool, error) {
 	return author == username, nil
 }
 
+// PageLoginSubmit processes the browser login form and renders the result page.
 func (h *Handler) PageLoginSubmit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username := c.PostForm("username")
@@ -724,7 +826,7 @@ func (h *Handler) PageLoginSubmit() gin.HandlerFunc {
 		}
 
 		loggedIn := !isError
-		component := views.LoginPage(h.securityEnabled, loggedIn, username, message, isError)
+		component := views.LoginPage(h.securityEnabled(), loggedIn, username, message, isError)
 		renderHTML(c, status, "login_submit", component)
 	}
 }
@@ -773,7 +875,7 @@ func (h *Handler) Search() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"query":   query,
-			"mode":    modeLabel(h.securityEnabled),
+			"mode":    modeLabel(h.securityEnabled()),
 			"results": posts,
 		})
 	}
@@ -783,8 +885,10 @@ func (h *Handler) Search() gin.HandlerFunc {
 // uses string concatenation, regardless of SECURITY_ENABLED. Kept for the
 // side-by-side defense demo.
 //
-// Try: /api/search-vulnerable?q=' OR 1=1 --
-// Or:  /api/search-vulnerable?q=' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --
+// Try: /api/search-vulnerable?q=zz' ORDER BY 8 --
+// Or:  /api/search-vulnerable?q=zz' OR EXISTS(SELECT 1 FROM users WHERE username='admin' AND substr(password_hash,1,1)='a') --
+// Or:  /api/search-vulnerable?q=zz' UNION SELECT 1, name, sql, 1, char(32), char(32), char(32) FROM sqlite_master WHERE type='table' --
+// Or:  /api/search-vulnerable?q=zz' UNION SELECT 9000, '[intel] database map', 'users=' || (SELECT COUNT(*) FROM users) || ' tables=' || (SELECT group_concat(name, ', ') FROM sqlite_master WHERE type='table'), 1, 'sqli-bot', char(32), char(32) --
 func (h *Handler) SearchVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		query := c.Query("q")
@@ -817,12 +921,12 @@ func (h *Handler) PageSearch() gin.HandlerFunc {
 		if query != "" {
 			posts, err = h.svc.SearchPosts(query)
 			if err != nil {
-				component := views.SearchPage(h.securityEnabled, loggedIn, username, query, nil, "Search failed: "+err.Error(), true)
+				component := views.SearchPage(h.securityEnabled(), loggedIn, username, query, nil, "Search failed: "+err.Error(), true)
 				renderHTML(c, http.StatusOK, "search", component)
 				return
 			}
 		}
-		component := views.SearchPage(h.securityEnabled, loggedIn, username, query, posts, "", false)
+		component := views.SearchPage(h.securityEnabled(), loggedIn, username, query, posts, "", false)
 		renderHTML(c, http.StatusOK, "search", component)
 	}
 }
@@ -835,22 +939,23 @@ func (h *Handler) PageSearchPartial() gin.HandlerFunc {
 			query = c.Query("q")
 		}
 		if query == "" {
-			component := views.SearchResults("", nil, "Type something to search", true, h.securityEnabled)
+			component := views.SearchResults("", nil, "Type something to search", true, h.securityEnabled())
 			renderHTML(c, http.StatusOK, "search_partial", component)
 			return
 		}
 
 		posts, err := h.svc.SearchPosts(query)
 		if err != nil {
-			component := views.SearchResults(query, nil, "Search failed: "+err.Error(), true, h.securityEnabled)
+			component := views.SearchResults(query, nil, "Search failed: "+err.Error(), true, h.securityEnabled())
 			renderHTML(c, http.StatusInternalServerError, "search_partial", component)
 			return
 		}
-		component := views.SearchResults(query, posts, "", false, h.securityEnabled)
+		component := views.SearchResults(query, posts, "", false, h.securityEnabled())
 		renderHTML(c, http.StatusOK, "search_partial", component)
 	}
 }
 
+// modeLabel converts the security flag into a short human-readable label.
 func modeLabel(secure bool) string {
 	if secure {
 		return "secure (parameterized)"
@@ -858,7 +963,16 @@ func modeLabel(secure bool) string {
 	return "vulnerable (concatenated)"
 }
 
-// PageVulnDemos renders the security demos hub.
+// PageSecurityMap renders the lab overview and current security posture.
+func (h *Handler) PageSecurityMap() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username, loggedIn := h.currentUsername(c)
+		component := views.SecurityMapPage(h.securityEnabled(), loggedIn, username)
+		renderHTML(c, http.StatusOK, "security_map", component)
+	}
+}
+
+// PageVulnDemos renders the security demo index page.
 func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)
@@ -869,9 +983,9 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-89",
 				OWASP:       "A03:2021",
 				Status:      "ready",
-				Description: "Vulnerable mode concatenates the search term into a SELECT — try ' OR 1=1 -- to leak drafts.",
-				Href:        "/ui/search",
-				Payload:     `' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --`,
+				Description: "The Vocaloid library search concatenates the search term into a SELECT in vulnerable mode; the payload builds a live DB intelligence row.",
+				Href:        "/ui/library",
+				Payload:     `zz' UNION SELECT 9000, '[intel] database map', 'users=' || (SELECT COUNT(*) FROM users) || ' tables=' || (SELECT group_concat(name, ', ') FROM sqlite_master WHERE type='table'), 1, 'sqli-bot', '', '' --`,
 			},
 			{
 				Emoji:       "🪲",
@@ -879,9 +993,9 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-79",
 				OWASP:       "A03:2021",
 				Status:      "ready",
-				Description: "Comments rendered as raw HTML in vulnerable mode. Open the Stored XSS demo post and submit a payload.",
+				Description: "Fan comments are rendered as raw HTML in vulnerable mode, so a malicious comment can take over the visible page UI for every reader.",
 				Href:        "/ui/posts/view/1",
-				Payload:     `<script>alert('XSS-' + document.cookie)</script>`,
+				Payload:     `<img src=x onerror="document.body.insertAdjacentHTML('afterbegin','<div style=&quot;position:fixed;inset:0;z-index:9999;background:#111827;color:white;padding:40px&quot;><h1>Session expired</h1><p>Fake re-login overlay injected from a comment.</p></div>')">`,
 			},
 			{
 				Emoji:       "🔐",
@@ -889,9 +1003,9 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-287",
 				OWASP:       "A07:2021",
 				Status:      "ready",
-				Description: "Vulnerable mode accepts any password for an existing user. Secure mode validates with bcrypt.",
+				Description: "The normal login accepts any password for an existing member in vulnerable mode; that can be chained with moderation actions.",
 				Href:        "/ui/login",
-				Payload:     `username=admin&password=anything`,
+				Payload:     `username=user1&password=totally-wrong → POST /ui/posts/delete/{adminPostId}`,
 			},
 			{
 				Emoji:       "🔓",
@@ -899,8 +1013,8 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-639",
 				OWASP:       "A01:2021",
 				Status:      "ready",
-				Description: "In vulnerable mode any logged-in user can delete any post. Secure mode enforces author/admin only.",
-				Href:        "/ui/idor-demo",
+				Description: "The moderation queue exposes post delete actions. Vulnerable mode checks only login, while secure mode checks owner/admin rights.",
+				Href:        "/ui/moderation",
 				Payload:     `POST /ui/posts/delete/{otherUsersPostId}`,
 			},
 			{
@@ -909,8 +1023,8 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-200",
 				OWASP:       "A02:2021",
 				Status:      "ready",
-				Description: "Vulnerable mode stores plaintext passwords in SQLite. Secure mode persists bcrypt hashes only.",
-				Href:        "/ui/db-expose",
+				Description: "The member directory shows the persistence layer: plaintext credentials in vulnerable mode, bcrypt hashes in secure mode.",
+				Href:        "/ui/members",
 				Payload:     `sqlite> SELECT username, password_hash FROM users;`,
 			},
 			{
@@ -919,9 +1033,9 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-352",
 				OWASP:       "A01:2021",
 				Status:      "ready",
-				Description: "Form POST without anti-CSRF token can be forged cross-origin.",
-				Href:        "/ui/csrf-demo",
-				Payload:     `<form action="/ui/csrf-demo" method="POST"><input name="new_email" value="hacked@evil.com"></form>`,
+				Description: "Profile settings update the notification email. Without an anti-CSRF token, another page can auto-submit the state-changing POST.",
+				Href:        "/ui/profile",
+				Payload:     `<form id=x action="/ui/profile" method="POST"><input name="new_email" value="attacker+csrf@evil.test"></form><script>x.submit()</script>`,
 			},
 			{
 				Emoji:       "📂",
@@ -929,9 +1043,9 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-22",
 				OWASP:       "A01:2021",
 				Status:      "ready",
-				Description: "Vulnerable mode concatenates a filename under ./uploads, letting ../ escape the directory. Secure mode canonicalizes and rejects traversal.",
-				Href:        "/ui/path-traversal",
-				Payload:     `GET /api/files-vulnerable?name=../go.mod`,
+				Description: "The fanart vault previews uploaded files. Vulnerable mode trusts the filename, so ../ can expose source code or the SQLite database.",
+				Href:        "/ui/gallery",
+				Payload:     `GET /api/files-vulnerable?name=../internal/db/db.go`,
 			},
 			{
 				Emoji:       "💻",
@@ -939,18 +1053,17 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				CWE:         "CWE-78",
 				OWASP:       "A03:2021",
 				Status:      "ready",
-				Description: "Vulnerable mode passes host into sh -c, so shell metacharacters execute extra commands. Secure mode validates host and avoids the shell.",
-				Href:        "/ui/cmd-injection",
-				Payload:     `GET /api/ping-vulnerable?host=127.0.0.1; whoami`,
+				Description: "The stream health check pings relay hosts. Vulnerable mode passes the host through sh -c, so a relay check becomes shell execution.",
+				Href:        "/ui/stream-check",
+				Payload:     `GET /api/ping-vulnerable?host=127.0.0.1; whoami; uname -a`,
 			},
 		}
-		component := views.VulnDemosPage(h.securityEnabled, loggedIn, username, demos)
+		component := views.VulnDemosPage(h.securityEnabled(), loggedIn, username, demos)
 		renderHTML(c, http.StatusOK, "vuln_demos", component)
 	}
 }
 
-// CommentsVulnerable stores comments without sanitization (Stored XSS demo).
-// The raw HTML body is persisted directly so <script> tags execute on render.
+// CommentsVulnerable stores comments without sanitization for the XSS demo.
 func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		postID, _ := strconv.Atoi(c.PostForm("post_id"))
@@ -987,9 +1100,7 @@ func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 	}
 }
 
-// CsrfFormVulnerable returns and accepts a form without CSRF protection.
-// The POST handler actually updates the logged-in user's email address,
-// making the state-change exploitable via a cross-origin request.
+// CsrfFormVulnerable returns and accepts the unprotected profile-email form.
 func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)
@@ -998,7 +1109,7 @@ func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
 			if loggedIn {
 				email, _ = h.svc.GetUserEmail(username)
 			}
-			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, "", email, "", false)
+			component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, "", email, "", false)
 			renderHTML(c, http.StatusOK, "csrf_demo", component)
 			return
 		}
@@ -1011,18 +1122,29 @@ func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
 		}
 		if newEmail == "" {
 			email, _ := h.svc.GetUserEmail(username)
-			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, "", email, "Email cannot be empty", true)
+			component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, "", email, "Email cannot be empty", true)
 			renderHTML(c, http.StatusBadRequest, "csrf_demo", component)
 			return
 		}
 		if err := h.svc.UpdateUserEmail(username, newEmail); err != nil {
-			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, "", newEmail, "Failed to update email", true)
+			component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, "", newEmail, "Failed to update email", true)
 			renderHTML(c, http.StatusInternalServerError, "csrf_demo", component)
 			return
 		}
-		component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, "", newEmail,
+		component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, "", newEmail,
 			fmt.Sprintf("Email updated to %s (no CSRF token was checked!)", newEmail), false)
 		renderHTML(c, http.StatusOK, "csrf_demo", component)
+	}
+}
+
+// ProfileSettings dispatches to the secure or vulnerable profile workflow.
+func (h *Handler) ProfileSettings() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if h.securityEnabled() {
+			h.CsrfSecureForm()(c)
+			return
+		}
+		h.CsrfFormVulnerable()(c)
 	}
 }
 
@@ -1031,7 +1153,6 @@ func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
 // ============================================================================
 
 // CommentsSecure stores a comment after HTML-escaping the body.
-// Used by the secure JSON API endpoint for the XSS demo.
 func (h *Handler) CommentsSecure() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -1067,9 +1188,7 @@ func (h *Handler) CommentsSecure() gin.HandlerFunc {
 	}
 }
 
-// PagePostDetail renders a single post with its comment thread.
-// Comments are rendered with templ.Raw in insecure mode (Stored XSS) and as
-// plain text in secure mode.
+// PagePostDetail renders a post together with its comment thread.
 func (h *Handler) PagePostDetail() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
@@ -1096,13 +1215,12 @@ func (h *Handler) PagePostDetail() gin.HandlerFunc {
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
 		username, loggedIn := h.currentUsername(c)
-		component := views.PostDetailPage(post, comments, h.securityEnabled, loggedIn, username, message, isError)
+		component := views.PostDetailPage(post, comments, h.securityEnabled(), loggedIn, username, message, isError)
 		renderHTML(c, http.StatusOK, "post_detail", component)
 	}
 }
 
-// PagePostCommentSubmit processes a form-based comment submission from the
-// post detail page.
+// PagePostCommentSubmit processes a form-based comment submission.
 func (h *Handler) PagePostCommentSubmit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
@@ -1133,7 +1251,7 @@ func (h *Handler) PagePostCommentSubmit() gin.HandlerFunc {
 			return
 		}
 
-		component := views.CommentsList(comments, h.securityEnabled)
+		component := views.CommentsList(comments, h.securityEnabled())
 		renderHTML(c, http.StatusOK, "comments_list", component)
 	}
 }
@@ -1149,21 +1267,30 @@ func generateCSRFToken() string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+// setCSRFCookie stores the CSRF token in a SameSite=Strict cookie.
+//
+// Inputs:
+//   - c: Gin context that owns the response.
+//   - token: CSRF token to store.
+func setCSRFCookie(c *gin.Context, token string) {
+	c.SetSameSite(http.SameSiteStrictMode)
+	c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
+}
+
 // CsrfSecureForm handles the CSRF-protected email-update form.
-// GET: issues a new CSRF token (stored in a cookie and embedded in the form).
-// POST: validates the token before performing the email update.
+// GET issues a new token; POST validates the token before updating the email.
 func (h *Handler) CsrfSecureForm() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)
 
 		if c.Request.Method == http.MethodGet {
 			token := generateCSRFToken()
-			c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
+			setCSRFCookie(c, token)
 			email := ""
 			if loggedIn {
 				email, _ = h.svc.GetUserEmail(username)
 			}
-			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, token, email, "", false)
+			component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, token, email, "", false)
 			renderHTML(c, http.StatusOK, "csrf_secure", component)
 			return
 		}
@@ -1172,7 +1299,14 @@ func (h *Handler) CsrfSecureForm() gin.HandlerFunc {
 		formToken := c.PostForm("csrf_token")
 		cookieToken, cookieErr := c.Cookie(csrfCookieName)
 		if cookieErr != nil || formToken == "" || formToken != cookieToken {
-			c.JSON(http.StatusForbidden, gin.H{"error": "CSRF token validation failed"})
+			token := generateCSRFToken()
+			setCSRFCookie(c, token)
+			email := ""
+			if loggedIn {
+				email, _ = h.svc.GetUserEmail(username)
+			}
+			component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, token, email, "CSRF token validation failed", true)
+			renderHTML(c, http.StatusForbidden, "csrf_secure", component)
 			return
 		}
 
@@ -1185,43 +1319,41 @@ func (h *Handler) CsrfSecureForm() gin.HandlerFunc {
 		if newEmail == "" {
 			email, _ := h.svc.GetUserEmail(username)
 			token := generateCSRFToken()
-			c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
-			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, token, email, "Email cannot be empty", true)
+			setCSRFCookie(c, token)
+			component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, token, email, "Email cannot be empty", true)
 			renderHTML(c, http.StatusBadRequest, "csrf_secure", component)
 			return
 		}
 
 		if err := h.svc.UpdateUserEmail(username, newEmail); err != nil {
 			token := generateCSRFToken()
-			c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
-			component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, token, newEmail, "Failed to update email", true)
+			setCSRFCookie(c, token)
+			component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, token, newEmail, "Failed to update email", true)
 			renderHTML(c, http.StatusInternalServerError, "csrf_secure", component)
 			return
 		}
 
 		token := generateCSRFToken()
-		c.SetCookie(csrfCookieName, token, 60*60, "/", "", false, true)
-		component := views.CSRFDemoPage(h.securityEnabled, loggedIn, username, token, newEmail,
+		setCSRFCookie(c, token)
+		component := views.CSRFDemoPage(h.securityEnabled(), loggedIn, username, token, newEmail,
 			fmt.Sprintf("Email updated to %s (CSRF token was valid ✓)", newEmail), false)
 		renderHTML(c, http.StatusOK, "csrf_secure", component)
 	}
 }
 
-// PageIDOR renders the Broken Access Control / IDOR demo page.
+// PageIDOR renders the broken-access-control demo page.
 func (h *Handler) PageIDOR() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		posts, _ := h.svc.GetAllPosts()
 		username, loggedIn := h.currentUsername(c)
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
-		component := views.IDORDemoPage(posts, h.securityEnabled, loggedIn, username, message, isError)
+		component := views.IDORDemoPage(posts, h.securityEnabled(), loggedIn, username, message, isError)
 		renderHTML(c, http.StatusOK, "idor_demo", component)
 	}
 }
 
-// PageDBExpose renders the Sensitive Data Exposure demo page.
-// In insecure mode it lists all users with their plaintext passwords.
-// In secure mode it returns a 403 page showing only hashed passwords.
+// PageDBExpose renders the sensitive-data-exposure demo page.
 func (h *Handler) PageDBExpose() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)
@@ -1230,15 +1362,12 @@ func (h *Handler) PageDBExpose() gin.HandlerFunc {
 			c.String(http.StatusInternalServerError, "Failed to load users")
 			return
 		}
-		component := views.DBExposePage(users, h.securityEnabled, loggedIn, username)
+		component := views.DBExposePage(users, h.securityEnabled(), loggedIn, username)
 		renderHTML(c, http.StatusOK, "db_expose", component)
 	}
 }
 
-// FilesVulnerable reads a file from the uploads directory by directly
-// concatenating the user-supplied filename — exploitable with path traversal.
-//
-// Example: /api/files-vulnerable?name=../app.db
+// FilesVulnerable reads a file directly from user-supplied input.
 func (h *Handler) FilesVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Query("name")
@@ -1261,10 +1390,7 @@ func (h *Handler) FilesVulnerable() gin.HandlerFunc {
 	}
 }
 
-// FilesSecure reads a file from the uploads directory after validating that the
-// resolved path stays within the uploads directory.
-//
-// Example (blocked): /api/files-secure?name=../app.db → 400
+// FilesSecure reads a file only after validating that it remains in uploads.
 func (h *Handler) FilesSecure() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Query("name")
@@ -1293,6 +1419,14 @@ func (h *Handler) FilesSecure() gin.HandlerFunc {
 	}
 }
 
+// safeUploadPath resolves a filename and rejects traversal outside uploads.
+//
+// Input:
+//   - name: user-supplied file name or relative path.
+//
+// Outputs:
+//   - string: absolute path inside uploads when valid.
+//   - bool: true when the resolved path is safe.
 func safeUploadPath(name string) (string, bool) {
 	if filepath.IsAbs(name) {
 		return "", false
@@ -1315,7 +1449,7 @@ func safeUploadPath(name string) (string, bool) {
 	return candidate, true
 }
 
-// PagePathTraversal renders the Path Traversal / LFI demo page.
+// PagePathTraversal renders the path traversal demo page.
 func (h *Handler) PagePathTraversal() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)
@@ -1325,13 +1459,13 @@ func (h *Handler) PagePathTraversal() gin.HandlerFunc {
 
 		if filename != "" {
 			endpoint := "/api/files-vulnerable"
-			if h.securityEnabled {
+			if h.securityEnabled() {
 				endpoint = "/api/files-secure"
 			}
 			_ = endpoint // displayed in view; actual read below
 
 			// Read via the appropriate path validation strategy.
-			if !h.securityEnabled {
+			if !h.securityEnabled() {
 				path := uploadsDir + "/" + filename
 				data, err := os.ReadFile(path)
 				if err != nil {
@@ -1363,18 +1497,54 @@ func (h *Handler) PagePathTraversal() gin.HandlerFunc {
 			}
 		}
 
-		component := views.PathTraversalPage(h.securityEnabled, loggedIn, username, filename, content, message, isError)
+		component := views.PathTraversalPage(h.securityEnabled(), loggedIn, username, filename, content, message, isError)
 		renderHTML(c, http.StatusOK, "path_traversal", component)
 	}
 }
 
 // validHostRE matches only safe hostname/IP characters; metacharacters are excluded.
+// validHostRE matches only safe host characters for the secure ping path.
 var validHostRE = regexp.MustCompile(`^[a-zA-Z0-9.\-]+$`)
 
-// PingVulnerable runs ping by concatenating user input into sh -c.
-// This is intentionally vulnerable to command injection for the lab demo.
+// validatePingHost rejects empty values and shell metacharacters.
+func validatePingHost(host string) error {
+	if host == "" {
+		return fmt.Errorf("host parameter required")
+	}
+	if !validHostRE.MatchString(host) {
+		return fmt.Errorf("invalid host: only [a-zA-Z0-9.-] allowed")
+	}
+	return nil
+}
+
+// runSecurePing executes ping without a shell after validating the host.
 //
-// Example exploit: /api/ping-vulnerable?host=8.8.8.8+;+cat+/etc/passwd
+// Inputs:
+//   - ctx: request context used for cancellation.
+//   - host: target host to ping.
+//
+// Outputs:
+//   - string: combined command output.
+//   - error: validation failure, timeout, or command error.
+func runSecurePing(ctx context.Context, host string) (string, error) {
+	if err := validatePingHost(host); err != nil {
+		return "", err
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, securePingTimeout)
+	defer cancel()
+
+	out, err := exec.CommandContext(pingCtx, "ping", "-c1", host).CombinedOutput() // #nosec G204
+	if pingCtx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("ping timed out after %s", securePingTimeout)
+	}
+	// A non-zero ping exit code is still a valid command result to display.
+	// The security invariant here is input validation + no shell + timeout.
+	_ = err
+	return string(out), nil
+}
+
+// PingVulnerable executes ping through a shell and is intentionally unsafe.
 func (h *Handler) PingVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		host := c.Query("host")
@@ -1392,10 +1562,7 @@ func (h *Handler) PingVulnerable() gin.HandlerFunc {
 	}
 }
 
-// PingSecure runs ping after validating that the host contains only safe characters.
-// The command is invoked directly without a shell so metacharacters have no effect.
-//
-// Example (blocked): /api/ping-secure?host=8.8.8.8+;+cat+/etc/passwd → 400
+// PingSecure validates the host and executes ping without a shell.
 func (h *Handler) PingSecure() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		host := c.Query("host")
@@ -1405,22 +1572,26 @@ func (h *Handler) PingSecure() gin.HandlerFunc {
 		}
 
 		// Secure: reject input that contains shell metacharacters.
-		if !validHostRE.MatchString(host) {
+		if err := validatePingHost(host); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error":  "invalid host: only [a-zA-Z0-9.-] allowed",
+				"error":  err.Error(),
 				"detail": "shell metacharacters (;, &, |, $, `, etc.) are rejected",
 			})
 			return
 		}
 
-		out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
+		out, err := runSecurePing(c.Request.Context(), host)
+		if err != nil {
+			c.Header("Content-Type", "text/plain; charset=utf-8")
+			c.String(http.StatusGatewayTimeout, out+"\n"+err.Error())
+			return
+		}
 		c.Header("Content-Type", "text/plain; charset=utf-8")
-		c.String(http.StatusOK, string(out))
+		c.String(http.StatusOK, out)
 	}
 }
 
-// PageCmdInjection renders the Command Injection demo page.
-// When a host query parameter is present it runs the ping and shows the output.
+// PageCmdInjection renders the command-injection demo page.
 func (h *Handler) PageCmdInjection() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)
@@ -1429,7 +1600,7 @@ func (h *Handler) PageCmdInjection() gin.HandlerFunc {
 		isError := false
 
 		if host != "" {
-			if !h.securityEnabled {
+			if !h.securityEnabled() {
 				// VULNERABLE mode: run via shell — command injection possible.
 				cmd := exec.Command("sh", "-c", "ping -c1 "+host) // #nosec G204
 				out, _ := cmd.CombinedOutput()
@@ -1439,12 +1610,16 @@ func (h *Handler) PageCmdInjection() gin.HandlerFunc {
 				}
 			} else {
 				// Secure mode: validate first, then invoke without a shell.
-				if !validHostRE.MatchString(host) {
+				if err := validatePingHost(host); err != nil {
 					message = "⛔ Command injection blocked: host contains disallowed characters — only [a-zA-Z0-9.-] are permitted"
 					isError = true
 				} else {
-					out, _ := exec.Command("ping", "-c1", host).CombinedOutput() // #nosec G204
-					output = string(out)
+					var err error
+					output, err = runSecurePing(c.Request.Context(), host)
+					if err != nil {
+						message = fmt.Sprintf("Ping failed: %v", err)
+						isError = true
+					}
 					if len(output) > 4096 {
 						output = output[:4096] + "\n... (truncated)"
 					}
@@ -1452,7 +1627,7 @@ func (h *Handler) PageCmdInjection() gin.HandlerFunc {
 			}
 		}
 
-		component := views.CmdInjectionPage(h.securityEnabled, loggedIn, username, host, output, message, isError)
+		component := views.CmdInjectionPage(h.securityEnabled(), loggedIn, username, host, output, message, isError)
 		renderHTML(c, http.StatusOK, "cmd_injection", component)
 	}
 }

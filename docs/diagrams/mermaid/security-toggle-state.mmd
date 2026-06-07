@@ -1,0 +1,8 @@
+flowchart LR
+    T["POST /ui/mode/toggle"] --> M{"SECURITY_ENABLED"}
+
+    M -->|false| V["Tryb vulnerable<br/>ORDER BY / UNION payload<br/>raw HTML comments<br/>brak tokena CSRF<br/>sh -c z inputem"]
+    M -->|true| S["Tryb secure<br/>parametryzowane SQL<br/>escaping HTML<br/>token CSRF<br/>exec.Command bez shella"]
+
+    V --> R1["Payload wykonuje atak"]
+    S --> R2["Ten sam payload jest blokowany albo traktowany jako dane"]

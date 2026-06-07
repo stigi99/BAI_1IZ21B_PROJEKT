@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant User as Fan / moderator
+    participant UI as MikuMiku UI
+    participant H as Gin handler
+    participant S as Service
+    participant DB as SQLite
+    User->>UI: Wykonuje funkcję aplikacji
+    UI->>H: HTTP request
+    H->>H: Sprawdza SECURITY_ENABLED
+    alt vulnerable
+        H->>S: input bez pełnej walidacji
+        S->>DB: podatne SQL / zapis / odczyt
+        DB-->>S: wynik podatny
+    else secure
+        H->>S: walidacja, token, owner check, parametry
+        S->>DB: bezpieczne zapytanie
+        DB-->>S: wynik kontrolowany
+    end
+    S-->>H: response data
+    H-->>UI: HTML / JSON
+    UI-->>User: wynik ataku albo blokada

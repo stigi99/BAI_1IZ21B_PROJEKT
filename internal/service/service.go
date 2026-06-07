@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"BAI_1IZ21B_PROJEKT/internal/security"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -24,14 +26,17 @@ type rateLimiter struct {
 	records map[string]*loginRecord
 }
 
+// newRateLimiter creates an empty in-memory rate limiter for one service.
 func newRateLimiter() *rateLimiter {
 	return &rateLimiter{records: make(map[string]*loginRecord)}
 }
 
+// Service coordinates database access, security-mode checks, and in-memory
+// throttling for authentication.
 type Service struct {
-	db              *sql.DB
-	securityEnabled bool
-	rl              *rateLimiter
+	db   *sql.DB
+	mode *security.ModeStore
+	rl   *rateLimiter
 }
 
 // Comment is a blog comment (may contain raw HTML in insecure mode for the
@@ -53,6 +58,7 @@ type UserRecord struct {
 	Role         string
 }
 
+// Post represents a blog post, including optional attachment metadata.
 type Post struct {
 	ID             int    `json:"id"`
 	Title          string `json:"title"`
@@ -69,14 +75,52 @@ var (
 	javascriptSchemeRE = regexp.MustCompile(`(?i)javascript\s*:`)
 )
 
+// New constructs a Service using a fresh mode store seeded with the provided
+// security state.
+//
+// Inputs:
+//   - db: database handle used by all service methods.
+//   - securityEnabled: initial lab mode.
+//
+// Output:
+//   - *Service: ready-to-use service instance.
 func New(db *sql.DB, securityEnabled bool) *Service {
-	return &Service{db: db, securityEnabled: securityEnabled, rl: newRateLimiter()}
+	return NewWithMode(db, security.NewModeStore(securityEnabled))
 }
 
+// NewWithMode constructs a Service that shares an existing security-mode store.
+//
+// Inputs:
+//   - db: database handle used by all service methods.
+//   - mode: shared mode store used for runtime secure/vulnerable toggling.
+//
+// Output:
+//   - *Service: ready-to-use service instance bound to the supplied mode store.
+func NewWithMode(db *sql.DB, mode *security.ModeStore) *Service {
+	return &Service{db: db, mode: mode, rl: newRateLimiter()}
+}
+
+// SecurityEnabled reports whether the service should execute secure code paths.
+//
+// Output:
+//   - bool: current security state.
+func (s *Service) SecurityEnabled() bool {
+	return s.mode.Enabled()
+}
+
+// SetSecurityEnabled updates the active security mode used by the service.
+//
+// Input:
+//   - enabled: new security state.
 func (s *Service) SetSecurityEnabled(enabled bool) {
-	s.securityEnabled = enabled
+	s.mode.Set(enabled)
 }
 
+// GetPublishedPosts returns all posts whose published flag is enabled.
+//
+// Output:
+//   - []Post: published posts ordered as returned by SQLite.
+//   - error: query or row scanning failure.
 func (s *Service) GetPublishedPosts() ([]Post, error) {
 	rows, err := s.db.Query(
 		`SELECT id, title, post_content, published,
@@ -106,6 +150,11 @@ func (s *Service) GetPublishedPosts() ([]Post, error) {
 	return posts, nil
 }
 
+// GetAllPosts returns every post regardless of publication state.
+//
+// Output:
+//   - []Post: all posts ordered from newest to oldest.
+//   - error: query or row scanning failure.
 func (s *Service) GetAllPosts() ([]Post, error) {
 	rows, err := s.db.Query(
 		`SELECT id, title, post_content, published,
@@ -135,6 +184,14 @@ func (s *Service) GetAllPosts() ([]Post, error) {
 	return posts, nil
 }
 
+// GetPostByID loads a single post by database identifier.
+//
+// Input:
+//   - id: post identifier to look up.
+//
+// Output:
+//   - Post: matching row when found.
+//   - error: lookup or scan failure.
 func (s *Service) GetPostByID(id int) (Post, error) {
 	var p Post
 	err := s.db.QueryRow(
@@ -152,7 +209,7 @@ func (s *Service) GetPostByID(id int) (Post, error) {
 // secure mode uses parameterized LIKE; insecure mode concatenates user input
 // into the SQL string (classic SQL Injection).
 func (s *Service) SearchPosts(query string) ([]Post, error) {
-	if s.securityEnabled {
+	if s.SecurityEnabled() {
 		return s.SearchPostsSecure(query)
 	}
 	return s.SearchPostsVulnerable(query)
@@ -164,9 +221,18 @@ func (s *Service) SearchPosts(query string) ([]Post, error) {
 // endpoint side-by-side).
 //
 // Example payloads:
-//   - `' OR 1=1 --`   → returns every row (drafts included)
-//   - `' UNION SELECT id, username, password_hash, 1, ”, ”, ” FROM users --`
-//     → leaks credentials through the title/content columns
+//   - `zz' ORDER BY 8 --`
+//     -> leaks the SELECT column count through a database error in vulnerable mode
+//   - `zz' OR EXISTS(SELECT 1 FROM users WHERE username='admin' AND substr(password_hash,1,1)='a') --`
+//     -> proves boolean inference against the users table without a visible login form error
+//   - `zz' UNION SELECT 1, name, sql, 1, char(32), char(32), char(32) FROM sqlite_master WHERE type='table' --`
+//     -> enumerates SQLite table names and CREATE statements
+//   - `zz' UNION SELECT id, '[user] ' || username, 'role=' || role || ' email=' || email || ' secret=' || password_hash, 1, username, char(32), char(32) FROM users --`
+//     -> leaks user records through the title/content columns
+//   - `zz' UNION SELECT 9000, '[intel] database map', 'users=' || (SELECT COUNT(*) FROM users) || ' tables=' || (SELECT group_concat(name, ', ') FROM sqlite_master WHERE type='table'), 1, 'sqli-bot', char(32), char(32) --`
+//     -> creates an attacker-controlled intelligence summary row
+//   - `zz' UNION SELECT id, '[draft] ' || title, post_content, published, author_username, char(32), char(32) FROM blog WHERE published=0 --`
+//     -> leaks hidden drafts that secure search intentionally filters out
 func (s *Service) SearchPostsVulnerable(query string) ([]Post, error) {
 	// VULNERABLE: direct string concatenation into the SQL statement.
 	sqlQuery := "SELECT id, title, post_content, published, " +
@@ -201,6 +267,14 @@ func (s *Service) SearchPostsSecure(query string) ([]Post, error) {
 	return scanPostRows(rows)
 }
 
+// scanPostRows converts a raw SQL rows iterator into a slice of Post values.
+//
+// Input:
+//   - rows: open result set with the blog schema columns in order.
+//
+// Output:
+//   - []Post: posts scanned from the result set.
+//   - error: scan or iteration failure.
 func scanPostRows(rows *sql.Rows) ([]Post, error) {
 	defer rows.Close()
 	var posts []Post
@@ -251,11 +325,26 @@ func (s *Service) UpdatePost(id int, title, content string, published int, attac
 	return err
 }
 
+// DeletePost removes a post by identifier.
+//
+// Input:
+//   - id: post identifier to delete.
+//
+// Output:
+//   - error: SQL execution failure, if any.
 func (s *Service) DeletePost(id int) error {
 	_, err := s.db.Exec("DELETE FROM blog WHERE id = ?", id)
 	return err
 }
 
+// GetPostAuthor returns the author username stored for a post.
+//
+// Input:
+//   - id: post identifier to inspect.
+//
+// Outputs:
+//   - string: author username when present.
+//   - error: lookup or scan failure.
 func (s *Service) GetPostAuthor(id int) (string, error) {
 	var author sql.NullString
 	err := s.db.QueryRow("SELECT author_username FROM blog WHERE id = ?", id).Scan(&author)
@@ -283,8 +372,17 @@ func (s *Service) CreateUser(username, password, email string) error {
 	return err
 }
 
+// preparePassword hashes a password in secure mode and returns it unchanged in
+// insecure mode.
+//
+// Input:
+//   - plain: plaintext password supplied during registration or seeding.
+//
+// Outputs:
+//   - string: value to persist in the database.
+//   - error: bcrypt failure in secure mode.
 func (s *Service) preparePassword(plain string) (string, error) {
-	if !s.securityEnabled {
+	if !s.SecurityEnabled() {
 		// VULNERABLE: plaintext storage (Sensitive Data Exposure)
 		return plain, nil
 	}
@@ -295,6 +393,14 @@ func (s *Service) preparePassword(plain string) (string, error) {
 	return string(hash), nil
 }
 
+// UserExists reports whether a username is already stored in the users table.
+//
+// Input:
+//   - username: account name to look up.
+//
+// Outputs:
+//   - bool: true when the user exists.
+//   - error: lookup or scan failure.
 func (s *Service) UserExists(username string) (bool, error) {
 	var id int
 	err := s.db.QueryRow(
@@ -326,7 +432,7 @@ func (s *Service) ValidateUserCredentials(username, password string) (bool, erro
 		return false, err
 	}
 
-	if !s.securityEnabled {
+	if !s.SecurityEnabled() {
 		// VULNERABLE: Broken Authentication — accept any password for an existing user
 		return true, nil
 	}
@@ -338,10 +444,23 @@ func (s *Service) ValidateUserCredentials(username, password string) (bool, erro
 }
 
 // GetDB returns the database connection for use in vulnerable endpoints (demo only)
+// GetDB exposes the underlying database handle for the demo-only vulnerable
+// endpoints that intentionally bypass the service abstraction.
+//
+// Output:
+//   - *sql.DB: shared database connection.
 func (s *Service) GetDB() *sql.DB {
 	return s.db
 }
 
+// IsUserAdmin reports whether the given username belongs to an admin account.
+//
+// Input:
+//   - username: account name to inspect.
+//
+// Outputs:
+//   - bool: true when the stored role is admin.
+//   - error: lookup or scan failure.
 func (s *Service) IsUserAdmin(username string) (bool, error) {
 	var role string
 	err := s.db.QueryRow(
@@ -368,7 +487,7 @@ func (s *Service) IsUserAdmin(username string) (bool, error) {
 // execute when the comment is rendered.
 func (s *Service) CreateComment(postID int, author, body string) (int64, error) {
 	stored := body
-	if s.securityEnabled {
+	if s.SecurityEnabled() {
 		stored = html.EscapeString(stripUnsafeHTML(body))
 	}
 	res, err := s.db.Exec(
@@ -381,6 +500,14 @@ func (s *Service) CreateComment(postID int, author, body string) (int64, error) 
 	return res.LastInsertId()
 }
 
+// stripUnsafeHTML removes the most common script-bearing HTML patterns before
+// the secure comment path escapes the remaining text.
+//
+// Input:
+//   - body: raw HTML payload supplied by the user.
+//
+// Output:
+//   - string: text with inline script constructs removed.
 func stripUnsafeHTML(body string) string {
 	cleaned := scriptTagRE.ReplaceAllString(body, "")
 	cleaned = eventAttributeRE.ReplaceAllString(cleaned, "")
@@ -485,7 +612,7 @@ const (
 // failure threshold within the lockout window. Always returns true in insecure
 // mode so brute-force is trivially possible.
 func (s *Service) CheckRateLimit(username string) bool {
-	if !s.securityEnabled {
+	if !s.SecurityEnabled() {
 		return true
 	}
 	s.rl.mu.Lock()
@@ -505,7 +632,7 @@ func (s *Service) CheckRateLimit(username string) bool {
 // RecordLoginFailure increments the failure counter for the username.
 // No-op in insecure mode.
 func (s *Service) RecordLoginFailure(username string) {
-	if !s.securityEnabled {
+	if !s.SecurityEnabled() {
 		return
 	}
 	s.rl.mu.Lock()

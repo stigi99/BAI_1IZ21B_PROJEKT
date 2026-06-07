@@ -1,0 +1,12 @@
+flowchart LR
+    U["Fan / moderator<br/>MikuMiku Fan Hub UI<br/>posts, library, profile,<br/>vault, stream, moderation, members"]
+    U --> H["Gin handlers"]
+    H --> M{"SecurityEnabled"}
+
+    M -->|false| V["vulnerable<br/>SQL string<br/>raw HTML<br/>no CSRF<br/>shell input"]
+    M -->|true| S["secure<br/>SQL params<br/>escaping<br/>CSRF token<br/>no shell"]
+
+    V --> SV["Service layer"]
+    S --> SV
+    SV --> DB["SQLite app.db"]
+    H --> B["Granice systemowe<br/>uploads / filesystem<br/>OS ping command<br/>Templ views / JSON"]

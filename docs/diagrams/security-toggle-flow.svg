@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-label="Security toggle flow">
+
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff7fb"/>
+      <stop offset="48%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#64748b" flood-opacity="0.18"/>
+    </filter>
+    <marker id="arrow" markerWidth="16" markerHeight="16" refX="12" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="16" markerHeight="16" refX="12" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#e11d48"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="16" markerHeight="16" refX="12" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <style>
+    text { font-family: Arial, Helvetica, sans-serif; }
+    .h1 { font-size: 46px; font-weight: 800; fill: #0f172a; }
+    .sub { font-size: 24px; font-weight: 500; fill: #475569; }
+    .box-title { font-size: 26px; font-weight: 800; }
+    .small { font-size: 22px; font-weight: 500; fill: #334155; }
+    .tiny { font-size: 18px; font-weight: 600; fill: #334155; }
+    .label { font-size: 20px; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 5px; }
+    .pill { font-size: 22px; font-weight: 800; }
+    .axis { font-size: 21px; font-weight: 800; fill: #334155; }
+    .tick { font-size: 19px; font-weight: 700; fill: #475569; }
+  </style>
+<rect width="1600" height="1000" rx="32" fill="url(#bg)"/>
+<text x="80" y="90" class="h1">Jeden payload, dwa wyniki</text>
+<text x="80" y="132" class="sub">Ten sam input użytkownika trafia do tej samej funkcji aplikacji, ale ModeStore wybiera</text>
+<text x="80" y="160" class="sub">podatną albo bezpieczną gałąź kodu.</text>
+<rect x="530" y="210" width="540" height="170" rx="20" fill="#ffffff" stroke="#cbd5e1" stroke-width="3" filter="url(#shadow)"/>
+<text x="556" y="254" class="box-title" fill="#0f172a">Payload użytkownika</text>
+<text x="556" y="292" class="small">SQL: ORDER BY probe -&gt; UNION sqlite_master -&gt;</text>
+<text x="556" y="320" class="small">draft pivot</text>
+<text x="556" y="348" class="small">XSS: onerror overlay, LFI: ../internal/db/db.go,</text>
+<text x="556" y="376" class="small">CMD: ; whoami</text>
+<rect x="115" y="560" width="560" height="245" rx="20" fill="#fff1f2" stroke="#fb7185" stroke-width="3" filter="url(#shadow)"/>
+<text x="141" y="604" class="box-title" fill="#0f172a">Vulnerable mode</text>
+<text x="141" y="642" class="small">Input staje się składnią</text>
+<text x="141" y="670" class="small">SQL: konkatenacja stringów</text>
+<text x="141" y="698" class="small">XSS: render przez templ.Raw</text>
+<text x="141" y="726" class="small">LFI: dokładanie ścieżki</text>
+<text x="141" y="754" class="small">CMD: sh -c interpretuje metaznaki</text>
+<rect x="925" y="560" width="560" height="245" rx="20" fill="#ecfdf5" stroke="#34d399" stroke-width="3" filter="url(#shadow)"/>
+<text x="951" y="604" class="box-title" fill="#0f172a">Secure mode</text>
+<text x="951" y="642" class="small">Input pozostaje danymi</text>
+<text x="951" y="670" class="small">SQL: placeholdery ?</text>
+<text x="951" y="698" class="small">XSS: escaping + sanitizacja</text>
+<text x="951" y="726" class="small">LFI: canonical path check</text>
+<text x="951" y="754" class="small">CMD: argument bez shella + regex</text>
+<path d="M800 355 C740 430 560 480 390 560" fill="none" stroke="#e11d48" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow-red)"/>
+<text x="530" y="455" text-anchor="middle" class="label" fill="#e11d48">SecurityEnabled = false</text>
+<path d="M800 355 C860 430 1040 480 1210 560" fill="none" stroke="#059669" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow-green)"/>
+<text x="1070" y="455" text-anchor="middle" class="label" fill="#059669">SecurityEnabled = true</text>
+<rect x="180" y="880" width="1240" height="54" rx="27" fill="#0f172a" filter="url(#shadow)"/>
+<text x="800.0" y="915" text-anchor="middle" class="pill" fill="#ffffff">Wniosek: dane użytkownika nie mogą stać się kodem, zapytaniem SQL, ścieżką ani poleceniem systemowym.</text>
+</svg>

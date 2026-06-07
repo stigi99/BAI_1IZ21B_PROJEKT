@@ -1,0 +1,643 @@
+
+================================================================================
+PACKAGE .
+================================================================================
+
+
+
+CONSTANTS
+
+const uploadsDir = "./uploads"
+
+FUNCTIONS
+
+func buildRouter(dbConn *sql.DB, initialSecurityEnabled bool) *gin.Engine
+func main()
+func registerAPIRoutes(router *gin.Engine, h *handlers.Handler)
+func registerHealthRoutes(router *gin.Engine)
+func registerLabRoutes(router *gin.Engine, h *handlers.Handler)
+func registerUIRoutes(router *gin.Engine, h *handlers.Handler, mode *security.ModeStore)
+
+================================================================================
+PACKAGE internal/config
+================================================================================
+
+package config // import "BAI_1IZ21B_PROJEKT/internal/config"
+
+
+TYPES
+
+type AppConfig struct {
+	DBPath          string
+	Port            string
+	SecurityEnabled bool
+}
+
+func Load() AppConfig
+
+
+================================================================================
+PACKAGE internal/db
+================================================================================
+
+package db // import "BAI_1IZ21B_PROJEKT/internal/db"
+
+
+CONSTANTS
+
+const (
+	fallbackAdminUsername = "admin"
+	fallbackAdminPassword = "admin"
+	fallbackAdminEmail    = "admin@example.com"
+)
+
+VARIABLES
+
+var (
+	seedScriptTagRE        = regexp.MustCompile(`(?i)</?\s*script[^>]*>`)
+	seedEventAttributeRE   = regexp.MustCompile(`(?i)\s+on[a-z0-9_-]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)`)
+	seedJavascriptSchemeRE = regexp.MustCompile(`(?i)javascript\s*:`)
+)
+
+FUNCTIONS
+
+func InitDB(filepath string) *sql.DB
+    InitDB opens (or creates) a SQLite database file at filepath and returns the
+    *sql.DB handle.
+
+func MigrateDB(db *sql.DB)
+    MigrateDB creates the blog, users, and comments tables if they do not
+    already exist.
+
+func SeedDB(db *sql.DB, securityEnabled bool)
+    SeedDB inserts dummy data into blog and users tables when they are empty.
+    In secure mode user passwords are stored as bcrypt hashes; in insecure mode
+    they are stored in plaintext (so the Sensitive Data Exposure scenario can be
+    demonstrated by inspecting the database directly).
+
+func columnExists(db *sql.DB, table, column string) (bool, error)
+func encodeCommentForSeed(body string, securityEnabled bool) string
+func encodePasswordForSeed(password string, securityEnabled bool) (string, error)
+    encodePasswordForSeed returns the plaintext password in insecure mode and a
+    bcrypt hash in secure mode.
+
+func seededAdminCredentials() (username, password, email string)
+func upsertSeedUser(db *sql.DB, username, password, email, role string, securityEnabled bool) error
+
+================================================================================
+PACKAGE internal/handlers
+================================================================================
+
+package handlers // import "BAI_1IZ21B_PROJEKT/internal/handlers"
+
+
+CONSTANTS
+
+const (
+	authCookieName = "bai_auth_user"
+	csrfCookieName = "bai_csrf_token"
+	uploadsDir     = "./uploads"
+	uploadsURLPath = "/uploads"
+	maxUploadBytes = 5 << 20 // 5 MiB
+	// fallbackSessionSecret is used only when BAI_SESSION_SECRET is unset.
+	// In a production system this must come from a securely stored secret.
+	fallbackSessionSecret = "bai-lab-demo-secret-do-not-use-in-prod"
+	sessionSecretEnv      = "BAI_SESSION_SECRET"
+	securePingTimeout     = 3 * time.Second
+)
+
+VARIABLES
+
+var validHostRE = regexp.MustCompile(`^[a-zA-Z0-9.\-]+$`)
+    validHostRE matches only safe hostname/IP characters; metacharacters are
+    excluded.
+
+
+FUNCTIONS
+
+func generateCSRFToken() string
+    generateCSRFToken creates a cryptographically random base64url token.
+
+func modeLabel(secure bool) string
+func readPublishedFromForm(c *gin.Context) int
+func renderHTML(c *gin.Context, status int, pageName string, component templ.Component)
+func runSecurePing(ctx context.Context, host string) (string, error)
+func safeUploadPath(name string) (string, bool)
+func sanitizeFilename(name string) string
+    sanitizeFilename strips path separators and disallows traversal sequences.
+    Returns "" for invalid names.
+
+func sessionSecret() string
+func setCSRFCookie(c *gin.Context, token string)
+func signCookieValue(username string) string
+    signCookieValue creates a signed cookie value: "username|hmac(username)".
+    Used in secure mode so the cookie value cannot be trivially forged.
+
+func validatePingHost(host string) error
+func verifyCookieValue(value string) (string, bool)
+    verifyCookieValue checks the HMAC signature and returns the username.
+
+
+TYPES
+
+type Handler struct {
+	svc *service.Service
+}
+
+func New(svc *service.Service, securityEnabled bool) *Handler
+
+func (h *Handler) CommentsSecure() gin.HandlerFunc
+    CommentsSecure stores a comment after HTML-escaping the body. Used by the
+    secure JSON API endpoint for the XSS demo.
+
+func (h *Handler) CommentsVulnerable() gin.HandlerFunc
+    CommentsVulnerable stores comments without sanitization (Stored XSS demo).
+    The raw HTML body is persisted directly so <script> tags execute on render.
+
+func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc
+    CsrfFormVulnerable returns and accepts a form without CSRF protection.
+    The POST handler actually updates the logged-in user's email address,
+    making the state-change exploitable via a cross-origin request.
+
+func (h *Handler) CsrfSecureForm() gin.HandlerFunc
+    CsrfSecureForm handles the CSRF-protected email-update form. GET:
+    issues a new CSRF token (stored in a cookie and embedded in the form). POST:
+    validates the token before performing the email update.
+
+func (h *Handler) FilesSecure() gin.HandlerFunc
+    FilesSecure reads a file from the uploads directory after validating that
+    the resolved path stays within the uploads directory.
+
+    Example (blocked): /api/files-secure?name=../app.db → 400
+
+func (h *Handler) FilesVulnerable() gin.HandlerFunc
+    FilesVulnerable reads a file from the uploads directory by directly
+    concatenating the user-supplied filename — exploitable with path traversal.
+
+    Example: /api/files-vulnerable?name=../app.db
+
+func (h *Handler) GetPosts() gin.HandlerFunc
+    GetPosts returns all published blog posts as JSON.
+
+func (h *Handler) Logout() gin.HandlerFunc
+    Logout clears the auth cookie and redirects to posts UI.
+
+func (h *Handler) PageCmdInjection() gin.HandlerFunc
+    PageCmdInjection renders the Command Injection demo page. When a host query
+    parameter is present it runs the ping and shows the output.
+
+func (h *Handler) PageDBExpose() gin.HandlerFunc
+    PageDBExpose renders the Sensitive Data Exposure demo page. In insecure mode
+    it lists all users with their plaintext passwords. In secure mode it returns
+    a 403 page showing only hashed passwords.
+
+func (h *Handler) PageIDOR() gin.HandlerFunc
+    PageIDOR renders the Broken Access Control / IDOR demo page.
+
+func (h *Handler) PageLogin() gin.HandlerFunc
+
+func (h *Handler) PageLoginPartial() gin.HandlerFunc
+    PageLoginPartial is the HTMX endpoint. On success we send HX-Redirect so the
+    whole layout refreshes (showing the green username badge in the navbar).
+
+func (h *Handler) PageLoginSubmit() gin.HandlerFunc
+
+func (h *Handler) PagePathTraversal() gin.HandlerFunc
+    PagePathTraversal renders the Path Traversal / LFI demo page.
+
+func (h *Handler) PagePostCommentSubmit() gin.HandlerFunc
+    PagePostCommentSubmit processes a form-based comment submission from the
+    post detail page.
+
+func (h *Handler) PagePostDelete() gin.HandlerFunc
+
+func (h *Handler) PagePostDetail() gin.HandlerFunc
+    PagePostDetail renders a single post with its comment thread. Comments are
+    rendered with templ.Raw in insecure mode (Stored XSS) and as plain text in
+    secure mode.
+
+func (h *Handler) PagePostEdit() gin.HandlerFunc
+
+func (h *Handler) PagePostEditSubmit() gin.HandlerFunc
+
+func (h *Handler) PagePosts() gin.HandlerFunc
+
+func (h *Handler) PagePostsCreate() gin.HandlerFunc
+
+func (h *Handler) PagePostsCreatePartial() gin.HandlerFunc
+    PagePostsCreatePartial handles HTMX form submissions and returns the freshly
+    rendered posts list so the page updates without a full reload.
+
+func (h *Handler) PagePostsPartial() gin.HandlerFunc
+
+func (h *Handler) PageRegister() gin.HandlerFunc
+
+func (h *Handler) PageRegisterPartial() gin.HandlerFunc
+    PageRegisterPartial is the HTMX endpoint for in-place registration. On
+    success it instructs the browser (via HX-Redirect) to navigate to /ui/login,
+    so the message banner is shown there and the user can log in immediately.
+
+func (h *Handler) PageRegisterSubmit() gin.HandlerFunc
+
+func (h *Handler) PageSearch() gin.HandlerFunc
+    PageSearch renders the full search page with the form.
+
+func (h *Handler) PageSearchPartial() gin.HandlerFunc
+    PageSearchPartial returns just the results fragment for HTMX.
+
+func (h *Handler) PageSecurityMap() gin.HandlerFunc
+    PageSecurityMap renders a feature-first overview of the lab. It makes the
+    vulnerabilities discoverable through normal application workflows instead of
+    only through the dedicated demo hub.
+
+func (h *Handler) PageVulnDemos() gin.HandlerFunc
+    PageVulnDemos renders a feature security index. The route name is legacy,
+    but the content points to real application workflows rather than detached
+    proof-of-concept pages.
+
+func (h *Handler) PingSecure() gin.HandlerFunc
+    PingSecure runs ping after validating that the host contains only
+    safe characters. The command is invoked directly without a shell so
+    metacharacters have no effect.
+
+    Example (blocked): /api/ping-secure?host=8.8.8.8+;+cat+/etc/passwd → 400
+
+func (h *Handler) PingVulnerable() gin.HandlerFunc
+    PingVulnerable runs ping by concatenating user input into sh -c. This is
+    intentionally vulnerable to command injection for the lab demo.
+
+    Example exploit: /api/ping-vulnerable?host=8.8.8.8+;+cat+/etc/passwd
+
+func (h *Handler) PostCreate() gin.HandlerFunc
+
+func (h *Handler) PostDelete() gin.HandlerFunc
+
+func (h *Handler) PostLogin() gin.HandlerFunc
+    PostLogin accepts JSON with username and password. Honours the
+    SECURITY_ENABLED toggle.
+
+func (h *Handler) PostRegister() gin.HandlerFunc
+
+func (h *Handler) PostUpdate() gin.HandlerFunc
+
+func (h *Handler) ProfileSettings() gin.HandlerFunc
+    ProfileSettings is the real profile-email workflow used by the UI. The same
+    route is intentionally vulnerable when SECURITY_ENABLED=false and protected
+    by a CSRF token when SECURITY_ENABLED=true.
+
+func (h *Handler) Search() gin.HandlerFunc
+    Search runs a blog search through the SECURITY_ENABLED toggle:
+      - secure mode → parameterized LIKE (input cannot break out)
+      - insecure mode → direct string concatenation (SQL Injection)
+
+    Returns posts as JSON.
+
+func (h *Handler) SearchVulnerable() gin.HandlerFunc
+    SearchVulnerable is a force-vulnerable SQL Injection endpoint that always
+    uses string concatenation, regardless of SECURITY_ENABLED. Kept for the
+    side-by-side defense demo.
+
+    Try: /api/search-vulnerable?q=zz' ORDER BY 8 -- Or:
+    /api/search-vulnerable?q=zz' OR EXISTS(SELECT 1 FROM users
+    WHERE username='admin' AND substr(password_hash,1,1)='a') -- Or:
+    /api/search-vulnerable?q=zz' UNION SELECT 1, name, sql, 1, char(32),
+    char(32), char(32) FROM sqlite_master WHERE type='table' -- Or:
+    /api/search-vulnerable?q=zz' UNION SELECT 9000, '[intel] database map',
+    'users=' || (SELECT COUNT(*) FROM users) || ' tables=' || (SELECT
+    group_concat(name, ', ') FROM sqlite_master WHERE type='table'), 1,
+    'sqli-bot', char(32), char(32) --
+
+func (h *Handler) SetSecurityEnabled(enabled bool)
+
+func (h *Handler) canDeletePost(username string, postID int) (bool, error)
+
+func (h *Handler) currentUsername(c *gin.Context) (string, bool)
+
+func (h *Handler) evaluateLogin(username, password string) (message string, isError bool, status int)
+
+func (h *Handler) requireLoginJSON(c *gin.Context) bool
+
+func (h *Handler) requireLoginUI(c *gin.Context, fallback string) bool
+
+func (h *Handler) saveUploadedAttachment(c *gin.Context, formField string) (publicPath, originalName string, err error)
+    saveUploadedAttachment stores an uploaded file under uploadsDir and returns
+    its public path and original filename. Returns ("", "", nil) when no file
+    was provided.
+
+func (h *Handler) securityEnabled() bool
+
+func (h *Handler) setAuthCookie(c *gin.Context, username string)
+
+
+================================================================================
+PACKAGE internal/security
+================================================================================
+
+package security // import "BAI_1IZ21B_PROJEKT/internal/security"
+
+
+TYPES
+
+type ModeStore struct {
+	enabled atomic.Bool
+}
+    ModeStore keeps the lab security mode in one concurrency-safe place.
+
+func NewModeStore(initial bool) *ModeStore
+
+func (s *ModeStore) Enabled() bool
+
+func (s *ModeStore) Set(enabled bool)
+
+func (s *ModeStore) Toggle() bool
+
+
+================================================================================
+PACKAGE internal/service
+================================================================================
+
+package service // import "BAI_1IZ21B_PROJEKT/internal/service"
+
+
+CONSTANTS
+
+const (
+	maxFailures    = 5
+	lockoutSeconds = 60
+)
+
+VARIABLES
+
+var (
+	scriptTagRE        = regexp.MustCompile(`(?i)</?\s*script[^>]*>`)
+	eventAttributeRE   = regexp.MustCompile(`(?i)\s+on[a-z0-9_-]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)`)
+	javascriptSchemeRE = regexp.MustCompile(`(?i)javascript\s*:`)
+)
+
+FUNCTIONS
+
+func stripUnsafeHTML(body string) string
+
+TYPES
+
+type Comment struct {
+	ID        int    `json:"id"`
+	PostID    int    `json:"post_id"`
+	Author    string `json:"author"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
+}
+    Comment is a blog comment (may contain raw HTML in insecure mode for the
+    Stored XSS demo).
+
+type Post struct {
+	ID             int    `json:"id"`
+	Title          string `json:"title"`
+	PostContent    string `json:"post_content"`
+	Published      int    `json:"published"`
+	Author         string `json:"author_username,omitempty"`
+	AttachmentPath string `json:"attachment_path,omitempty"`
+	AttachmentName string `json:"attachment_name,omitempty"`
+}
+
+func scanPostRows(rows *sql.Rows) ([]Post, error)
+
+type Service struct {
+	db   *sql.DB
+	mode *security.ModeStore
+	rl   *rateLimiter
+}
+
+func New(db *sql.DB, securityEnabled bool) *Service
+
+func NewWithMode(db *sql.DB, mode *security.ModeStore) *Service
+
+func (s *Service) CheckRateLimit(username string) bool
+    CheckRateLimit returns true (allowed) when the username has not exceeded the
+    failure threshold within the lockout window. Always returns true in insecure
+    mode so brute-force is trivially possible.
+
+func (s *Service) CreateComment(postID int, author, body string) (int64, error)
+    CreateComment inserts a comment. In insecure mode the body is stored
+    verbatim (Stored XSS risk). In secure mode the body is HTML-escaped before
+    storage so script tags cannot execute when the comment is rendered.
+
+func (s *Service) CreateCommentVulnerable(postID int, author, body string) (int64, error)
+    CreateCommentVulnerable always stores the body verbatim, regardless of the
+    SECURITY_ENABLED toggle. This keeps the force-vulnerable endpoint useful for
+    side-by-side demo comparisons.
+
+func (s *Service) CreatePost(title, content string, published int, author, attachmentPath, attachmentName string) (int64, error)
+    CreatePost inserts a new post. Use empty strings for attachmentPath/Name
+    when no file is attached.
+
+func (s *Service) CreateUser(username, password, email string) error
+    CreateUser registers a new user. In secure mode the password is hashed with
+    bcrypt before storage. In insecure mode the password is stored in plaintext
+    (Sensitive Data Exposure).
+
+func (s *Service) DeletePost(id int) error
+
+func (s *Service) GetAllPosts() ([]Post, error)
+
+func (s *Service) GetAllUsers() ([]UserRecord, error)
+    GetAllUsers returns all rows from the users table. Used by the /ui/db-expose
+    route to demonstrate Sensitive Data Exposure: in insecure mode password_hash
+    contains the plaintext password.
+
+func (s *Service) GetCommentsByPostID(postID int) ([]Comment, error)
+    GetCommentsByPostID returns all comments for a given post, ordered oldest
+    first.
+
+func (s *Service) GetDB() *sql.DB
+    GetDB returns the database connection for use in vulnerable endpoints (demo
+    only)
+
+func (s *Service) GetPostAuthor(id int) (string, error)
+
+func (s *Service) GetPostByID(id int) (Post, error)
+
+func (s *Service) GetPublishedPosts() ([]Post, error)
+
+func (s *Service) GetUserEmail(username string) (string, error)
+    GetUserEmail returns the current email for a username.
+
+func (s *Service) IsUserAdmin(username string) (bool, error)
+
+func (s *Service) RecordLoginFailure(username string)
+    RecordLoginFailure increments the failure counter for the username. No-op in
+    insecure mode.
+
+func (s *Service) SearchPosts(query string) ([]Post, error)
+    SearchPosts searches blog posts by query. Honors the SECURITY_ENABLED
+    toggle: secure mode uses parameterized LIKE; insecure mode concatenates user
+    input into the SQL string (classic SQL Injection).
+
+func (s *Service) SearchPostsSecure(query string) ([]Post, error)
+    SearchPostsSecure runs the same query through a parameterized LIKE so user
+    input cannot break out of the string literal — special characters become
+    part of the search term, not SQL syntax.
+
+func (s *Service) SearchPostsVulnerable(query string) ([]Post, error)
+    SearchPostsVulnerable concatenates the user-supplied query directly into
+    the SQL string. This is the demo SQL Injection sink used regardless of the
+    SECURITY_ENABLED toggle (so the lab can always show a "force vulnerable"
+    endpoint side-by-side).
+
+    Example payloads:
+      - `zz' ORDER BY 8 --` -> leaks the SELECT column count through a database
+        error in vulnerable mode
+      - `zz' OR EXISTS(SELECT 1 FROM users WHERE username='admin' AND
+        substr(password_hash,1,1)='a') --` -> proves boolean inference against
+        the users table without a visible login form error
+      - `zz' UNION SELECT 1, name, sql, 1, char(32), char(32), char(32) FROM
+        sqlite_master WHERE type='table' --` -> enumerates SQLite table names
+        and CREATE statements
+      - `zz' UNION SELECT id, '[user] ' || username, 'role=' || role || '
+        email=' || email || ' secret=' || password_hash, 1, username, char(32),
+        char(32) FROM users --` -> leaks user records through the title/content
+        columns
+      - `zz' UNION SELECT 9000, '[intel] database map', 'users=' || (SELECT
+        COUNT(*) FROM users) || ' tables=' || (SELECT group_concat(name, ',
+        ') FROM sqlite_master WHERE type='table'), 1, 'sqli-bot', char(32),
+        char(32) --` -> creates an attacker-controlled intelligence summary row
+      - `zz' UNION SELECT id, '[draft] ' || title, post_content, published,
+        author_username, char(32), char(32) FROM blog WHERE published=0 --` ->
+        leaks hidden drafts that secure search intentionally filters out
+
+func (s *Service) SecurityEnabled() bool
+
+func (s *Service) SetSecurityEnabled(enabled bool)
+
+func (s *Service) UpdatePost(id int, title, content string, published int, attachmentPath, attachmentName string) error
+    UpdatePost updates a post. Pass empty strings for attachment params to leave
+    the existing attachment unchanged; pass non-empty values to replace it.
+
+func (s *Service) UpdateUserEmail(username, newEmail string) error
+    UpdateUserEmail changes the email for the given username. Used by the CSRF
+    demo to perform a meaningful state change.
+
+func (s *Service) UserExists(username string) (bool, error)
+
+func (s *Service) ValidateUserCredentials(username, password string) (bool, error)
+    ValidateUserCredentials checks whether username + password authenticate.
+    Secure mode: bcrypt comparison. Insecure mode: only verifies the user
+    exists (Broken Authentication — password is ignored to keep the legacy lab
+    behavior).
+
+func (s *Service) preparePassword(plain string) (string, error)
+
+type UserRecord struct {
+	ID           int
+	Username     string
+	PasswordHash string
+	Email        string
+	Role         string
+}
+    UserRecord exposes user rows for the Sensitive Data Exposure demo page.
+
+type loginRecord struct {
+	failures int
+	resetAt  time.Time
+}
+    loginRecord tracks failed login attempts for a username (used in secure mode
+    to enforce a rate limit and slow down brute-force attacks).
+
+type rateLimiter struct {
+	mu      sync.Mutex
+	records map[string]*loginRecord
+}
+    rateLimiter is a simple in-memory store; each service instance keeps its own
+    so that tests remain isolated.
+
+func newRateLimiter() *rateLimiter
+
+
+================================================================================
+PACKAGE internal/views
+================================================================================
+
+package views // import "BAI_1IZ21B_PROJEKT/internal/views"
+
+templ: version: v0.3.1001
+
+VARIABLES
+
+var _ = templruntime.GeneratedTemplate
+
+FUNCTIONS
+
+func CSRFDemoPage(securityEnabled bool, loggedIn bool, username string, csrfToken string, currentEmail string, message string, isError bool) templ.Component
+    ============================================================================
+    Profile settings page with CSRF behavior
+    ============================================================================
+
+func CmdInjectionPage(securityEnabled bool, loggedIn bool, username string, host string, output string, message string, isError bool) templ.Component
+    ============================================================================
+    Stream relay health check with Command Injection behavior
+    ============================================================================
+
+func CommentsList(comments []service.Comment, securityEnabled bool) templ.Component
+func DBExposePage(users []service.UserRecord, securityEnabled bool, loggedIn bool, username string) templ.Component
+    ============================================================================
+    Sensitive Data Exposure — /ui/db-expose
+    ============================================================================
+
+func EditPostPage(securityEnabled bool, loggedIn bool, username string, post service.Post, message string, isError bool) templ.Component
+func IDORDemoPage(posts []service.Post, securityEnabled bool, loggedIn bool, username string, message string, isError bool) templ.Component
+    ============================================================================
+    Moderation queue with IDOR / Broken Access Control behavior
+    ============================================================================
+
+func Layout(title string, securityEnabled bool, loggedIn bool, username string) templ.Component
+func LoginPage(securityEnabled bool, loggedIn bool, username string, message string, isError bool) templ.Component
+func LoginResult(message string, isError bool) templ.Component
+func PathTraversalPage(securityEnabled bool, loggedIn bool, username string, filename string, content string, message string, isError bool) templ.Component
+    ============================================================================
+    Fanart vault file preview with Path Traversal / LFI behavior
+    ============================================================================
+
+func PostDetailPage(post service.Post, comments []service.Comment, securityEnabled bool, loggedIn bool, username string, message string, isError bool) templ.Component
+    ============================================================================
+    Post Detail + Comments (Stored XSS demo)
+    ============================================================================
+
+func PostsList(posts []service.Post, canEdit bool) templ.Component
+func PostsListContainer(posts []service.Post, loggedIn bool, username string, securityEnabled bool) templ.Component
+    PostsListContainer is the swap target for HTMX updates of the posts list.
+    Wraps PostsList in #posts-container so out-of-band updates can replace it.
+
+func PostsListWithBanner(posts []service.Post, loggedIn bool, username string, securityEnabled bool, message string, isError bool) templ.Component
+    PostsListWithBanner returns the same container with a flash message above
+    the list. Used by the HTMX create-post partial to surface success/errors.
+
+func PostsPage(posts []service.Post, securityEnabled bool, loggedIn bool, username string, message string, isError bool) templ.Component
+func RegisterPage(securityEnabled bool, loggedIn bool, username string, message string, isError bool) templ.Component
+func ResultMessage(message string, isError bool) templ.Component
+func SearchPage(securityEnabled bool, loggedIn bool, username string, query string, posts []service.Post, message string, isError bool) templ.Component
+func SearchResults(query string, posts []service.Post, message string, isError bool, securityEnabled bool) templ.Component
+    SearchResults renders the list of matched posts (or an empty/error state).
+    Used both standalone (HTMX swap target) and embedded inside SearchPage.
+
+func SecurityMapPage(securityEnabled bool, loggedIn bool, username string) templ.Component
+func VulnDemosPage(securityEnabled bool, loggedIn bool, username string, demos []VulnDemo) templ.Component
+func authHeroTip(mode string) string
+func cmdInjectionCodeDiff() string
+func cmdInjectionCurlExamples() string
+func commentPlaceholder(securityEnabled bool) string
+func layoutBodyClass(securityEnabled bool) string
+func vulnStatusPill(status string) templ.Component
+
+TYPES
+
+type VulnDemo struct {
+	Emoji       string
+	Title       string
+	CWE         string
+	OWASP       string
+	Status      string // "ready" | "wip" | "todo"
+	Description string
+	Href        string
+	Payload     string
+}
+

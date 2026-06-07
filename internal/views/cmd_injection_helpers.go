@@ -1,5 +1,7 @@
 package views
 
+// cmdInjectionCodeDiff renders the example vulnerable-versus-secure command
+// execution snippet used by the command-injection lab page.
 func cmdInjectionCodeDiff() string {
 	return `// Vulnerable
 cmd := exec.Command("sh", "-c", "ping -c1 "+host)
@@ -11,6 +13,7 @@ if !hostRegex.MatchString(host) {
 }`
 }
 
+// cmdInjectionCurlExamples renders example curl commands for the public demo.
 func cmdInjectionCurlExamples() string {
 	return `# Vulnerable endpoint
 curl "http://localhost:8080/api/ping-vulnerable?host=8.8.8.8"

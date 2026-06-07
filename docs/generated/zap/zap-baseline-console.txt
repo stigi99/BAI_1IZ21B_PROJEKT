@@ -1,0 +1,123 @@
+Using the Automation Framework
+Total of 60 URLs
+PASS: Vulnerable JS Library (Powered by Retire.js) [10003]
+PASS: In Page Banner Information Leak [10009]
+PASS: Cookie No HttpOnly Flag [10010]
+PASS: Cookie Without Secure Flag [10011]
+PASS: Re-examine Cache-control Directives [10015]
+PASS: Content-Type Header Missing [10019]
+PASS: Information Disclosure - Debug Error Messages [10023]
+PASS: Information Disclosure - Sensitive Information in URL [10024]
+PASS: Information Disclosure - Sensitive Information in HTTP Referrer Header [10025]
+PASS: HTTP Parameter Override [10026]
+PASS: Off-site Redirect [10028]
+PASS: Cookie Poisoning [10029]
+PASS: User Controllable Charset [10030]
+PASS: Viewstate [10032]
+PASS: Directory Browsing [10033]
+PASS: Heartbleed OpenSSL Vulnerability (Indicative) [10034]
+PASS: Strict-Transport-Security Header [10035]
+PASS: HTTP Server Response Header [10036]
+PASS: Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s) [10037]
+PASS: X-Backend-Server Header Information Leak [10039]
+PASS: Secure Pages Include Mixed Content [10040]
+PASS: HTTP to HTTPS Insecure Transition in Form Post [10041]
+PASS: HTTPS to HTTP Insecure Transition in Form Post [10042]
+PASS: User Controllable JavaScript Event (XSS) [10043]
+PASS: Big Redirect Detected (Potential Sensitive Information Leak) [10044]
+PASS: Retrieved from Cache [10050]
+PASS: X-ChromeLogger-Data (XCOLD) Header Information Leak [10052]
+PASS: Cookie without SameSite Attribute [10054]
+PASS: CSP [10055]
+PASS: X-Debug-Token Information Leak [10056]
+PASS: Username Hash Found [10057]
+PASS: X-AspNet-Version Response Header [10061]
+PASS: PII Disclosure [10062]
+PASS: Timestamp Disclosure [10096]
+PASS: Hash Disclosure [10097]
+PASS: Cross-Domain Misconfiguration [10098]
+PASS: Weak Authentication Method [10105]
+PASS: Reverse Tabnabbing [10108]
+PASS: Modern Web Application [10109]
+PASS: Dangerous JS Functions [10110]
+PASS: Verification Request Identified [10113]
+PASS: Script Served From Malicious Domain (polyfill) [10115]
+PASS: ZAP is Out of Date [10116]
+PASS: Private IP Disclosure [2]
+PASS: Session ID in URL Rewrite [3]
+PASS: Script Passive Scan Rules [50001]
+PASS: Stats Passive Scan Rule [50003]
+PASS: Insecure JSF ViewState [90001]
+PASS: Java Serialization Object [90002]
+PASS: Charset Mismatch [90011]
+PASS: Application Error Disclosure [90022]
+PASS: WSDL File Detection [90030]
+PASS: Loosely Scoped Cookie [90033]
+WARN-NEW: Cross-Domain JavaScript Source File Inclusion [10017] x 5 
+	http://host.docker.internal:8114/ (200 OK)
+	http://host.docker.internal:8114/ui/library (200 OK)
+	http://host.docker.internal:8114/ui/moderation (200 OK)
+	http://host.docker.internal:8114/ui/posts (200 OK)
+	http://host.docker.internal:8114/ui/security-map (200 OK)
+WARN-NEW: Missing Anti-clickjacking Header [10020] x 3 
+	http://host.docker.internal:8114/ui/library (200 OK)
+	http://host.docker.internal:8114/ui/moderation (200 OK)
+	http://host.docker.internal:8114/ui/security-map (200 OK)
+WARN-NEW: X-Content-Type-Options Header Missing [10021] x 5 
+	http://host.docker.internal:8114/ (200 OK)
+	http://host.docker.internal:8114/ui/library (200 OK)
+	http://host.docker.internal:8114/ui/moderation (200 OK)
+	http://host.docker.internal:8114/ui/posts (200 OK)
+	http://host.docker.internal:8114/ui/security-map (200 OK)
+WARN-NEW: Information Disclosure - Suspicious Comments [10027] x 1 
+	http://host.docker.internal:8114/static/js/bai-lab-extras.js (200 OK)
+WARN-NEW: User Controllable HTML Element Attribute (Potential XSS) [10031] x 3 
+	http://host.docker.internal:8114/ui/gallery?name=../go.sum (200 OK)
+	http://host.docker.internal:8114/ui/library?q=ZAP (200 OK)
+	http://host.docker.internal:8114/ui/stream-check?host=8.8.8.8 (200 OK)
+WARN-NEW: Content Security Policy (CSP) Header Not Set [10038] x 5 
+	http://host.docker.internal:8114/ (200 OK)
+	http://host.docker.internal:8114/ui/library (200 OK)
+	http://host.docker.internal:8114/ui/moderation (200 OK)
+	http://host.docker.internal:8114/ui/posts (200 OK)
+	http://host.docker.internal:8114/ui/security-map (200 OK)
+WARN-NEW: Storable and Cacheable Content [10049] x 5 
+	http://host.docker.internal:8114/ (301 Moved Permanently)
+	http://host.docker.internal:8114/robots.txt (404 Not Found)
+	http://host.docker.internal:8114/sitemap.xml (404 Not Found)
+	http://host.docker.internal:8114/ui (404 Not Found)
+	http://host.docker.internal:8114/ui/members (200 OK)
+WARN-NEW: Permissions Policy Header Not Set [10063] x 5 
+	http://host.docker.internal:8114/ui/gallery (200 OK)
+	http://host.docker.internal:8114/ui/login (200 OK)
+	http://host.docker.internal:8114/ui/members (200 OK)
+	http://host.docker.internal:8114/ui/profile (200 OK)
+	http://host.docker.internal:8114/ui/stream-check (200 OK)
+WARN-NEW: Source Code Disclosure - SQL [10099] x 3 
+	http://host.docker.internal:8114/api/search-vulnerable?q=zz'%20UNION%20SELECT%209000,%20'%5Bintel%5D%20database%20map',%20'users='%20%7C%7C%20(SELECT%20COUNT(*)%20FROM%20users)%20%7C%7C%20'%20tables='%20%7C%7C%20(SELECT%20group_concat(name,%20',%20')%20FROM%20sqlite_master%20WHERE%20type='table'),%201,%20'sqli-bot',%20'',%20''%20-- (200 OK)
+	http://host.docker.internal:8114/ui/library (200 OK)
+	http://host.docker.internal:8114/ui/library?q=ZAP (200 OK)
+WARN-NEW: Authentication Request Identified [10111] x 1 
+	http://host.docker.internal:8114/ui/login (401 Unauthorized)
+WARN-NEW: Session Management Response Identified [10112] x 2 
+	http://host.docker.internal:8114/ui/profile (403 Forbidden)
+	http://host.docker.internal:8114/ui/profile (403 Forbidden)
+WARN-NEW: Absence of Anti-CSRF Tokens [10202] x 5 
+	http://host.docker.internal:8114/ (200 OK)
+	http://host.docker.internal:8114/ui/library (200 OK)
+	http://host.docker.internal:8114/ui/moderation (200 OK)
+	http://host.docker.internal:8114/ui/moderation (200 OK)
+	http://host.docker.internal:8114/ui/moderation (200 OK)
+WARN-NEW: Sub Resource Integrity Attribute Missing [90003] x 5 
+	http://host.docker.internal:8114/ (200 OK)
+	http://host.docker.internal:8114/ (200 OK)
+	http://host.docker.internal:8114/ui/library (200 OK)
+	http://host.docker.internal:8114/ui/library (200 OK)
+	http://host.docker.internal:8114/ui/moderation (200 OK)
+WARN-NEW: Cross-Origin-Embedder-Policy Header Missing or Invalid [90004] x 12 
+	http://host.docker.internal:8114/ui/login (200 OK)
+	http://host.docker.internal:8114/ui/members (200 OK)
+	http://host.docker.internal:8114/ui/profile (200 OK)
+	http://host.docker.internal:8114/ui/stream-check (200 OK)
+	http://host.docker.internal:8114/ui/login (200 OK)
+FAIL-NEW: 0	FAIL-INPROG: 0	WARN-NEW: 14	WARN-INPROG: 0	INFO: 0	IGNORE: 0	PASS: 53
