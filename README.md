@@ -77,9 +77,11 @@ JSON API:
 - `GET /api/search?q=...` — SQL Injection demo, honors `SECURITY_ENABLED`
 - `GET /api/search-vulnerable?q=...` — force-vulnerable SQLi (always concatenated, for side-by-side demo)
 - `POST /api/comments-vulnerable` — force-vulnerable XSS (always stores raw HTML)
+- `POST /api/comments-secure` — sanitized counterpart for the comments demo
 - `GET/POST /csrf-vulnerable-form` — CSRF demo form (no token validation)
-- `GET /api/files-vulnerable?name=...`, `GET /api/files-secure?name=...` — Path Traversal / LFI demo
-- `GET /api/ping-vulnerable?host=...`, `GET /api/ping-secure?host=...` — Command Injection demo
+- `GET /debug/crash` — deliberate panic for Security Misconfiguration demo
+- `GET /api/files-vulnerable?name=...`, `GET /api/files-secure?name=...` — Path Traversal / LFI vulnerable/secure comparison
+- `GET /api/ping-vulnerable?host=...`, `GET /api/ping-secure?host=...` — Command Injection vulnerable/secure comparison
 
 UI routes:
 
@@ -97,6 +99,12 @@ UI routes:
 - `GET /ui/path-traversal` — Path Traversal / LFI demo
 - `GET /ui/cmd-injection` — Command Injection demo
 - `GET /ui/vuln-demos` — hub with all vulnerability scenarios (CWE/OWASP labelled)
+- `GET /ui/csrf-demo` — CSRF vulnerable form (no token)
+- `GET /ui/csrf-secure` — CSRF protected form with per-form token
+- `GET /ui/idor-demo` — Broken Access Control demo (IDOR)
+- `GET /ui/db-expose` — Sensitive Data Exposure demo (dumps user table)
+- `GET /ui/path-traversal` — Path Traversal demo page
+- `GET /ui/cmd-injection` — Command Injection demo page
 
 HTMX partials:
 
@@ -211,22 +219,23 @@ Watch during development:
 npm run watch:css
 ```
 
-## Implemented Vulnerabilities (Stage E)
+## Implemented Vulnerabilities (Stage E — complete ✅, with bonuses)
 
-Final scope for **n=2** is 2 mandatory vulnerabilities + 3 required extras, with 3 additional bonus demos that fit the app naturally.
+**9 vulnerabilities** end-to-end with integration tests. An n=3 team needs 7 (2 mandatory + 5 additional); the last two are extras.
 
-| # | Vulnerability | Status | Demo route |
-|---|---------------|--------|-----------|
-| 1 | SQL Injection | ✅ ready | `/ui/search`, `/api/search-vulnerable` |
-| 2 | Stored XSS | ✅ ready | `/ui/posts/view/1` (comments) |
-| 3 | Broken Authentication | ✅ ready | `/ui/login` (any password works in vuln mode) |
-| 4 | Broken Access Control | ✅ ready | `/ui/idor-demo` (delete another user's post in vuln mode) |
-| 5 | CSRF | ✅ ready | `/ui/csrf-demo`, `/ui/csrf-secure` |
-| 6 | Sensitive Data Exposure | ✅ bonus | `/ui/db-expose`, `sqlite> SELECT password_hash FROM users;` |
-| 7 | Path Traversal / LFI | ✅ bonus | `/ui/path-traversal`, `/api/files-vulnerable`, `/api/files-secure` |
-| 8 | Command Injection | ✅ bonus | `/ui/cmd-injection`, `/api/ping-vulnerable`, `/api/ping-secure` |
+| # | Vulnerability | CWE / OWASP | Demo route |
+|---|---------------|-------------|-----------|
+| 1 | SQL Injection | CWE-89 / A03:2021 | `/ui/search`, `/api/search-vulnerable` |
+| 2 | Stored XSS | CWE-79 / A03:2021 | `/ui/posts/view/1` (seeded XSS comment) |
+| 3 | Broken Authentication | CWE-287 / A07:2021 | `/ui/login` (any password works in vuln mode) |
+| 4 | Broken Access Control | CWE-639 / A01:2021 | `/ui/moderation`, `/ui/idor-demo` |
+| 5 | Sensitive Data Exposure | CWE-200 / A02:2021 | `/ui/members`, `/ui/db-expose` |
+| 6 | CSRF | CWE-352 / A01:2021 | `/ui/profile`, `/ui/csrf-demo`, `/ui/csrf-secure` |
+| 7 | Security Misconfiguration | CWE-16 / A05:2021 | `/debug/crash` (vuln: stack trace; secure: clean 500 + CSP/HSTS) |
+| 8 | Path Traversal / LFI ★ | CWE-22 / A01:2021 | `/ui/gallery`, `/api/files-vulnerable` vs `/api/files-secure` |
+| 9 | Command Injection ★ | CWE-78 / A03:2021 | `/ui/stream-check`, `/api/ping-vulnerable` vs `/api/ping-secure` |
 
-Security Misconfiguration remains a possible extra item, but it is not needed for the chosen n=2 scope.
+★ Bonus — above the n=3 requirement.
 
 See `PLAN_IMPLEMENTACJI_PODATNOSCI.md` for full per-vulnerability documentation (description, PoC, before/after diff).
 
@@ -246,8 +255,16 @@ Sprint 3 (vulnerability scenarios + UI polish, 2026-05-03 → 2026-05-08):
 9. UI polish: two-column hero on Login/Register, refactored post cards with `Read more →`, cheat-sheet drawer with filter and 14 sections (SQLi, XSS, IDOR, Path, CmdInj, SSRF, CSRF, Auth, SDE, Misconfig, Upload, Burp, Glossary)
 10. Tailwind config fix — content globs now scan `.go` files (previously only `.templ`/`*_templ.go`), so utility classes referenced from `layout_helpers.go` no longer get purged
 
-## Next Steps
+Sprint 4 (Etap E completion, 2026-05-15) — **Stage E done with bonuses**:
+11. CSRF (Krok 7) — vuln endpoints `/csrf-vulnerable-form` and `/ui/csrf-demo`; secure endpoint `/ui/csrf-secure` with per-form CSRF token (cookie `bai_csrf_token` + hidden `csrf_token` input validated before email update).
+12. Security Misconfiguration (Krok 8) — `SecurityHeadersMiddleware` sets CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy in secure mode. `ErrorSanitizerMiddleware` recovers from panics with a clean JSON 500 (vuln mode keeps the colourful Gin stack trace). New `/debug/crash` endpoint deliberately panics for the side-by-side demo. 4 integration tests.
+13. Bonus: Path Traversal / LFI — `/api/files-vulnerable` joins user input via `filepath.Join("./uploads", name)`; `/api/files-secure` rejects `..` and verifies the resolved path stays under `./uploads`.
+14. Bonus: Command Injection — `/api/ping-vulnerable` runs `sh -c "ping " + host`; `/api/ping-secure` uses `exec.Command("ping","-c1",host)` + a hostname regex whitelist.
+15. Bug fix — `/ui/posts` showed two stacked "log in" banners (template's `if !loggedIn` branch + handler-injected `ResultMessage`). Handler no longer injects the redundant message.
+16. Vuln Demos hub now lists 9 ready scenarios (added CSRF, Security Misconfiguration, Path Traversal, Command Injection cards).
+
+## Next Steps (Stage F — finalization)
 
 1. Run one full live-demo rehearsal: attack in vulnerable mode -> repeat in secure mode -> show code difference.
-2. Export/attach the screenshots from `docs/screenshots/` to the final submission package.
-3. Optionally add Security Misconfiguration only if there is extra time after the report and rehearsal.
+2. Export/attach the screenshots from `docs/screenshots/` and generated reports to the final submission package.
+3. Dry-run defense presentation with a stopwatch — confirm the main scenarios run cleanly in the available time.

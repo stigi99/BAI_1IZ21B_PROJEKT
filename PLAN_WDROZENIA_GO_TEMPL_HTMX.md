@@ -1,6 +1,6 @@
 # Plan Dzialania: Go + Templ + HTMX + Tailwind + SQLite
 
-> Aktualizacja: 2026-05-08. Etapy A-D zakonczone, Etap E w trakcie (5 z 7 podatnosci wymaganych dla wariantu n=3 zaimplementowane), Etap F (finalizacja) — czeka na CSRF + Security Misconfiguration + sekcje raportu.
+> Aktualizacja: 2026-05-15. **Etapy A-E ZAKONCZONE z naddatkiem.** **9 podatnosci** gotowych end-to-end (wymagane minimum dla n=3 = 7, mamy 2 bonusy: Path Traversal/LFI i Command Injection). Etap F (raport + probna obrona) w trakcie.
 
 ## 1) Gdzie jestesmy teraz (stan aktualny)
 
@@ -128,15 +128,16 @@ Definition of done:
 - ten sam atak dziala w vulnerable
 - ten sam atak jest blokowany w secure
 
-Status: [~] W TRAKCIE
+Status: [x] ZAKONCZONY z naddatkiem
 - [x] SQL Injection (Krok 1, 2026-05-03)
 - [x] Stored XSS (Krok 2, 2026-05-04)
 - [x] Broken Authentication (Krok 3, 2026-05-03)
-- [x] Broken Access Control (Krok 4, 2026-05-03)
-- [x] Sensitive Data Exposure (Krok 5, 2026-05-03)
-- [ ] CSRF — vuln endpoint istnieje, brak secure (token + walidacja)
-- [ ] Security Misconfiguration — brak middleware naglowkow + release mode
-- [ ] (opcjonalnie) Path Traversal / LFI, Command Injection
+- [x] Broken Access Control (Krok 4, 2026-05-03) — `/ui/idor-demo`
+- [x] Sensitive Data Exposure (Krok 5, 2026-05-03) — `/ui/db-expose`
+- [x] CSRF (Krok 7, 2026-05-15) — `/ui/csrf-secure` z per-form CSRF tokenem
+- [x] Security Misconfiguration (Krok 8, 2026-05-15) — CSP/HSTS/X-Frame-Options + ErrorSanitizer + 4 testy
+- [x] **BONUS** Path Traversal / LFI — `/api/files-vulnerable` vs `/api/files-secure`, UI `/ui/path-traversal`
+- [x] **BONUS** Command Injection — `/api/ping-vulnerable` vs `/api/ping-secure`, UI `/ui/cmd-injection`
 
 ### Etap F - Finalizacja scenariuszy bezpieczenstwa i obrony
 
@@ -150,11 +151,12 @@ Definition of done:
 - brak regresji endpointow i tras UI
 - material demo jest gotowy do prezentacji
 
-Status: [ ] DO ZROBIENIA
-- [x] SQLi i XSS gotowe end-to-end
-- [x] Hub `/ui/vuln-demos` jako one-stop shop dla demo
+Status: [~] W TRAKCIE
+- [x] SQLi, XSS, Broken Auth, BAC, SDE, CSRF, Security Misconfiguration — wszystkie 7 gotowe end-to-end
+- [x] Hub `/ui/vuln-demos` z 7 kartami CWE/OWASP — one-stop shop dla demo
 - [x] Cheat-sheet drawer z payloadami pod reka
-- [ ] Sekcje raportu dla Broken Auth / BAC / SDE (kod jest, brak rozdzialu w PLAN_IMPLEMENTACJI_PODATNOSCI.md)
+- [x] Sekcje raportu Krok 1-2, 6-8 w PLAN_IMPLEMENTACJI_PODATNOSCI.md
+- [ ] Sekcje raportu Krok 3-5 (Broken Auth / BAC / SDE) — kod jest, brakuje opisu (zostawione na koncu jako szybkie wypelnienie)
 - [ ] Probna obrona z zegarkiem
 - [ ] Checklista atakow (gotowe payloady + kolejnosc krokow demo)
 
@@ -177,14 +179,19 @@ Ukonczone w Sprint 3 (do 2026-05-08):
 - [x] Naprawiony bug Tailwind purge (klasy z helperow Go)
 - [x] Polish UI Login/Register (dwukolumnowe z hero)
 
-### Nastepny krok (najblizsze 2-3 dni)
+Ukonczone w Sprint 4 (do 2026-05-15) — **ETAP E ZAKONCZONY**:
+- [x] **CSRF secure mode** (Krok 7): double-submit cookie `bai_csrf`, walidacja form field lub X-CSRF-Token, JS auto-injection w `bai-lab-extras.js`, 7 testow integracyjnych (vuln/secure/wrong-token/header/force-vuln/json-api exempt)
+- [x] **Security Misconfiguration** (Krok 8): `SecurityHeadersMiddleware` z 6 naglowkami (CSP/HSTS/X-Frame-Options/X-Content-Type-Options/Referrer-Policy/Permissions-Policy), `ErrorSanitizerMiddleware` dla clean 500, endpoint `/debug/crash` jako demo, 4 testy
+- [x] Hub `/ui/vuln-demos` rozszerzony do **7 kart** (dodane CSRF i Security Misconfiguration)
+- [x] Fix bug duplikatu banneru na `/ui/posts` (zarowno template jak i handler renderowaly "log in" warning)
 
-1. **CSRF secure mode** (P1, ~M) — middleware token + walidacja w POST/PUT/DELETE; hidden input w formularzach UI; test integracyjny z brakujacym tokenem -> 403.
-2. **Security Misconfiguration** (P2, ~S) — middleware `SecurityHeaders` (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy), `gin.SetMode("release")` w secure trybie, ukryty stack trace.
-3. **Sekcje raportu** (~S kazda) — uzupelnic PLAN_IMPLEMENTACJI_PODATNOSCI.md o Krok 3 (Broken Auth), Krok 4 (BAC), Krok 5 (SDE) — opisy, PoC, diff.
-4. **Probna obrona** (~M) — przejscie po wszystkich scenariuszach z zegarkiem.
+### Nastepny krok (Etap F — finalizacja)
 
-Opcjonalnie:
+1. **Sekcje raportu Krok 3-5** (~S kazda) — uzupelnic PLAN_IMPLEMENTACJI_PODATNOSCI.md o opis + PoC + diff dla Broken Auth, BAC, SDE. Krok 1-2 i 6-8 sa juz opisane.
+2. **Probna obrona** (~M) — przejscie po wszystkich 7 scenariuszach z zegarkiem.
+3. **Slajdy / cheat sheet** — opcjonalnie 3-5 slajdow z architektura + lista podatnosci.
+
+Opcjonalnie (jezeli zostanie czas):
 - Path Traversal / LFI (P2)
 - Command Injection (P3)
 

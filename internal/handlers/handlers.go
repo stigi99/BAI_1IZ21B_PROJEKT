@@ -399,6 +399,9 @@ func (h *Handler) PagePosts() gin.HandlerFunc {
 			return
 		}
 
+		// Flash message comes only from query params (e.g. after redirect).
+		// The "please log in" hint is rendered by the template itself in the
+		// !loggedIn branch — duplicating it here produced two stacked banners.
 		message := c.Query("msg")
 		isError := c.Query("err") == "1"
 		username, loggedIn := h.currentUsername(c)
@@ -1057,6 +1060,16 @@ func (h *Handler) PageVulnDemos() gin.HandlerFunc {
 				Href:        "/ui/stream-check",
 				Payload:     `GET /api/ping-vulnerable?host=127.0.0.1; whoami; uname -a`,
 			},
+			{
+				Emoji:       "🛠️",
+				Title:       "Security Misconfiguration",
+				CWE:         "CWE-16",
+				OWASP:       "A05:2021",
+				Status:      "ready",
+				Description: "Vulnerable mode: Gin default Recovery leaks stack trace on /debug/crash; no security headers. Secure mode: CSP/HSTS/X-Frame-Options + sanitized 500.",
+				Href:        "/debug/crash",
+				Payload:     `curl -i http://localhost:8080/debug/crash # vuln: full stack trace; secure: {"error":"Internal server error"}`,
+			},
 		}
 		component := views.VulnDemosPage(h.securityEnabled(), loggedIn, username, demos)
 		renderHTML(c, http.StatusOK, "vuln_demos", component)
@@ -1100,7 +1113,22 @@ func (h *Handler) CommentsVulnerable() gin.HandlerFunc {
 	}
 }
 
-// CsrfFormVulnerable returns and accepts the unprotected profile-email form.
+// DebugCrash deliberately panics so the Security Misconfiguration demo can
+// show how Gin's default Recovery leaks the stack trace in vulnerable mode and
+// how ErrorSanitizerMiddleware swallows it in secure mode.
+func (h *Handler) DebugCrash() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Pretend the user passed bad input that we did not validate. Triggers
+		// a runtime panic with a colourful stack trace.
+		var posts []string
+		_ = posts[42] // index out of range
+		c.JSON(http.StatusOK, gin.H{"unreachable": true})
+	}
+}
+
+// CsrfFormVulnerable returns and accepts a form without CSRF protection.
+// The POST handler actually updates the logged-in user's email address,
+// making the state-change exploitable via a cross-origin request.
 func (h *Handler) CsrfFormVulnerable() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username, loggedIn := h.currentUsername(c)

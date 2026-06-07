@@ -21,19 +21,6 @@ const uploadsDir = "./uploads"
 
 // ---- Entry point ------------------------------------------------------------
 
-// securityHeadersMiddleware adds HTTP security headers when the application
-// runs in secure mode.
-func securityHeadersMiddleware(mode *security.ModeStore) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if mode.Enabled() {
-			c.Header("X-Frame-Options", "DENY")
-			c.Header("X-Content-Type-Options", "nosniff")
-			c.Header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://unpkg.com;")
-		}
-		c.Next()
-	}
-}
-
 // buildRouter creates the Gin engine, wires static assets, and registers every
 // application route.
 //
@@ -49,8 +36,9 @@ func buildRouter(dbConn *sql.DB, initialSecurityEnabled bool) *gin.Engine {
 	router.Static("/uploads", uploadsDir)
 
 	mode := security.NewModeStore(initialSecurityEnabled)
-	router.Use(securityHeadersMiddleware(mode))
-	
+	router.Use(handlers.SecurityHeadersMiddleware(mode.Enabled))
+	router.Use(handlers.ErrorSanitizerMiddleware(mode.Enabled))
+
 	svc := service.NewWithMode(dbConn, mode)
 	h := handlers.New(svc, initialSecurityEnabled)
 
@@ -96,6 +84,7 @@ func registerAPIRoutes(router *gin.Engine, h *handlers.Handler) {
 	router.POST("/api/comments-secure", h.CommentsSecure())
 	router.GET("/csrf-vulnerable-form", h.CsrfFormVulnerable())
 	router.POST("/csrf-vulnerable-form", h.CsrfFormVulnerable())
+	router.GET("/debug/crash", h.DebugCrash())
 }
 
 // registerUIRoutes binds the browser-facing routes and the live security mode
