@@ -1,16 +1,42 @@
-# Build artifact
+# OS metadata
+.DS_Store
+**/.DS_Store
+
+# Build artifacts
+app
 BAI_1IZ21B_PROJEKT
+*.exe
+*.test
+coverage.out
+coverage.html
 
-# SQLite database created at runtime
+# Runtime data
 app.db
+*.db
+uploads/*
+!uploads/.gitkeep
 
+# Legacy local exports kept outside the repository root
+/README.pdf
+/Sprawozdanie.pdf
+/SCENARIUSZ_OBRONY_LIVE_DEMO.pdf
+*.rtf
+/STATUS_*.md
+/Sprawozdanie.md
+docs/generated/godocs/*.md
+docs/generated/zap/*.md
+
+# Dependencies
 node_modules/
 
-# Markdown files (except README)
-*.md
-!README.md
+# Local environments and secrets
+.env
+.env.*
+.venv/
 
 # AI assistant/customization files
+AGENTS.md
+CLAUDE.md
 .github/copilot-instructions.md
 .github/instructions/
 .github/prompts/
